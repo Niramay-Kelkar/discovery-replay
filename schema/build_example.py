@@ -236,7 +236,8 @@ def build() -> Capability:
             "return their record and current savings balance."
         ),
         target=Target(
-            app="cornerstone-teller-console",
+            # Fully fictional. Not a real core-banking product or vendor.
+            app="acme-teller-console",
             base_url="http://127.0.0.1:5001",
             entry_route="/",
         ),
@@ -324,8 +325,21 @@ def build() -> Capability:
                 classification="business_outcome",
                 terminal=True,
                 detection=DetectionRule(
-                    kind="aria_visible", role="alertdialog",
-                    name="Supervisor review required", exact=False,
+                    # The alertdialog carries an accessible name, but the
+                    # name-computation path (aria-labelledby to a <td>) is
+                    # less certain across engines than a plain text match,
+                    # so accept either signal.
+                    kind="any_of",
+                    rules=[
+                        DetectionRule(
+                            kind="aria_visible", role="alertdialog",
+                            name="Supervisor review required", exact=False,
+                        ),
+                        DetectionRule(
+                            kind="text_present",
+                            text="Supervisor review required",
+                        ),
+                    ],
                 ),
             ),
         ],

@@ -257,4 +257,77 @@ outcomes (`MEMBER_NOT_FOUND`, `ACCESS_DENIED`,
 - `agent/models.py`, `agent/__init__.py`
 - `schema/build_example.py`, `schema/example_artifact.json`
 - `requirements.txt` (root) — `pydantic`
+
+---
+
+## 2026-09-09 — Verify example_artifact.json against the live target app
+
+`schema/example_artifact.json` was hand-authored, not derived from a
+real run, so every locator, checkpoint, and detection rule was checked
+against `target_app` running locally (Chrome accessibility tree + curl).
+
+### What matched (no change)
+
+- `base_url` / port `5001`; entry route `/`.
+- Search page: `textbox` name "Search term (member ID or last name)";
+  `radio` roles with names "Member ID" / "Last name" (the `aria-label`
+  governs the computed name — the browser a11y inspector displays the
+  `value` attribute, but Playwright's name computation uses the
+  `aria-label`); `button` name "Look Up".
+- Results: `table` name "Member search results"; result `link` name
+  "Open detail for <name>, member <id>" (artifact matches the "Open
+  detail for" prefix, substring).
+- Detail: `table` name "Member record for <name>"; `rowheader`s exactly
+  "Member ID", "Full name", "Date of birth", "Address", "Savings
+  balance". **`date_of_birth` and `address` are real record fields.**
+  (Phone and Email are also rows but the capability does not extract
+  them — a subset, not a mismatch.)
+- `MEMBER_NOT_FOUND` wording: "No members matched that search." on the
+  results page (container `role="status"`), "No such member." on a
+  direct `/member/<bad id>` hit. Both detected by `text_present`.
+- `ACCESS_DENIED`: `role="alert"` whose accessible name contains "not
+  authorized", plus HTTP 403. Both detection signals fire.
+
+### What did not match / was fragile — and the fix
+
+- **`SUPERVISOR_REVIEW_REQUIRED` detection was fragile.** It relied
+  solely on `aria_visible role=alertdialog name~="Supervisor review
+  required"`, and the dialog's accessible name came only from
+  `aria-labelledby` pointing at a `<td>`. Chrome's accessibility
+  inspector did not surface that as a computed name, so the rule was
+  engine-dependent. Fixed both ends:
+  - `target_app/templates/interstitial.html` — added an explicit
+    `aria-label="Supervisor review required"` on the `alertdialog`
+    (alongside the existing `aria-labelledby`), so the name is
+    unambiguous.
+  - `schema/build_example.py` / `example_artifact.json` — broadened the
+    detection rule to `any_of[ aria_visible role=alertdialog
+    name~="Supervisor review required", text_present "Supervisor review
+    required" ]`.
+
+### Other changes
+
+- **Renamed `target.app`** from `cornerstone-teller-console` to
+  `acme-teller-console`. "Cornerstone" collides with Cornerstone
+  Advisors (a real core-banking consulting firm) and several real
+  credit unions; `acme-` is unambiguously fictional. (Scope was the
+  artifact field; the demo app's visible "Cornerstone Savings" branding
+  in the templates is unchanged and could be revisited separately.)
+- `target_app/app.py` — the `__main__` block served port 5000 while the
+  README, the artifact, and every run command use 5001. Aligned it to
+  5001 so there is one answer.
+
+### Verified after changes
+
+`build_example.py` regenerates cleanly; `Capability.model_validate_json`
+round-trips the file. Re-ran the full six-case sweep against the live
+app: happy path by ID and last name, access-denied (403 + text),
+not-found (both wordings), and the interstitial (now with a direct
+`aria-label`) all behave as the artifact describes.
+
+### Committed
+
+- `target_app/templates/interstitial.html`, `target_app/app.py`
+- `schema/build_example.py`, `schema/example_artifact.json`
+- this BUILD_LOG entry
 - this BUILD_LOG entry

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Look up a credit-union member by member ID or last name and return their record and current savings balance.",
   "target": {
-    "app": "cornerstone-teller-console",
+    "app": "acme-teller-console",
     "base_url": "http://127.0.0.1:5001",
     "entry_route": "/"
   },
@@ -516,10 +516,21 @@
       "classification": "business_outcome",
       "terminal": true,
       "detection": {
-        "kind": "aria_visible",
-        "role": "alertdialog",
-        "name": "Supervisor review required",
-        "exact": false
+        "kind": "any_of",
+        "exact": false,
+        "rules": [
+          {
+            "kind": "aria_visible",
+            "role": "alertdialog",
+            "name": "Supervisor review required",
+            "exact": false
+          },
+          {
+            "kind": "text_present",
+            "text": "Supervisor review required",
+            "exact": false
+          }
+        ]
       }
     }
   ],
