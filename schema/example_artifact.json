@@ -1,0 +1,562 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "member_lookup",
+  "version": "1.0.0",
+  "description": "Look up a credit-union member by member ID or last name and return their record and current savings balance.",
+  "target": {
+    "app": "cornerstone-teller-console",
+    "base_url": "http://127.0.0.1:5001",
+    "entry_route": "/"
+  },
+  "inputs": [
+    {
+      "name": "search_field",
+      "type": "string",
+      "required": true,
+      "description": "Which field to search on.",
+      "example": "Member ID",
+      "allowed_values": [
+        "Member ID",
+        "Last name"
+      ]
+    },
+    {
+      "name": "search_term",
+      "type": "string",
+      "required": true,
+      "description": "The member ID or last name to look up.",
+      "example": "M1001"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "member_id",
+      "type": "string",
+      "required": true,
+      "description": "The member's ID."
+    },
+    {
+      "name": "full_name",
+      "type": "string",
+      "required": true,
+      "description": "The member's full name."
+    },
+    {
+      "name": "savings_balance",
+      "type": "money",
+      "required": true,
+      "description": "Current savings balance, as rendered."
+    },
+    {
+      "name": "date_of_birth",
+      "type": "date",
+      "required": true,
+      "description": "The member's date of birth."
+    },
+    {
+      "name": "address",
+      "type": "string",
+      "required": true,
+      "description": "The member's mailing address."
+    },
+    {
+      "name": "outcome_code",
+      "type": "string",
+      "required": false,
+      "description": "Always set by replay: 'SUCCESS' on the happy path, otherwise the matched expected-outcome code."
+    }
+  ],
+  "steps": [
+    {
+      "ordinal": 1,
+      "id": "open_search",
+      "description": "Open the teller search page",
+      "action": "navigate",
+      "locators": [],
+      "target_route": "/",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 5.0
+      },
+      "checkpoint": {
+        "kind": "element_visible",
+        "locator": {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "textbox",
+          "name": "Search term (member ID or last name)",
+          "exact": true
+        }
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 2,
+      "id": "choose_search_field",
+      "description": "Select whether to search by member ID or last name",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "radio",
+          "name": "{{search_field}}",
+          "exact": true
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "{{search_field}}"
+        }
+      ],
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "element_visible",
+        "description": "the chosen radio is present (replay also asserts checked)",
+        "locator": {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "radio",
+          "name": "{{search_field}}",
+          "exact": true
+        }
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 3,
+      "id": "enter_search_term",
+      "description": "Type the member ID or last name to look up",
+      "action": "fill",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "textbox",
+          "name": "Search term (member ID or last name)",
+          "exact": true
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "Search term (member ID or last name)"
+        }
+      ],
+      "input_name": "search_term",
+      "value_template": "{{search_term}}",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "element_visible",
+        "locator": {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "textbox",
+          "name": "Search term (member ID or last name)",
+          "exact": true
+        }
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 4,
+      "id": "submit_search",
+      "description": "Submit the search",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "button",
+          "name": "Look Up",
+          "exact": true
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "text": "Look Up"
+        }
+      ],
+      "settle": {
+        "wait_for": "network_idle",
+        "max_wait_seconds": 8.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "results table appeared, OR a legitimate 'not found' answer",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "table",
+              "name": "Member search results",
+              "exact": true
+            }
+          },
+          {
+            "kind": "outcome_matched",
+            "outcome_code": "MEMBER_NOT_FOUND"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 5,
+      "id": "open_member_detail",
+      "description": "Open the first matching member's detail page",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "link",
+          "name": "Open detail for",
+          "exact": false,
+          "within": "table[name='Member search results']",
+          "nth": 0
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "text": "View",
+          "within": "table[name='Member search results']",
+          "nth": 0
+        }
+      ],
+      "settle": {
+        "wait_for": "network_idle",
+        "max_wait_seconds": 12.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "record table appeared, OR a recognized business outcome (access denied / supervisor review) -- not a hung page",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "table",
+              "name": "Member record for",
+              "exact": false
+            }
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 6,
+      "id": "extract_member_id",
+      "description": "Read 'Member ID' from the member record",
+      "action": "extract",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Member ID",
+          "exact": true,
+          "within": "table[name^='Member record for']",
+          "note": "value is the cell paired with this rowheader"
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "Member ID",
+          "within": "table[name^='Member record for']"
+        }
+      ],
+      "output_name": "member_id",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "element_visible",
+        "locator": {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Member ID",
+          "exact": true
+        }
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 7,
+      "id": "extract_full_name",
+      "description": "Read 'Full name' from the member record",
+      "action": "extract",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Full name",
+          "exact": true,
+          "within": "table[name^='Member record for']",
+          "note": "value is the cell paired with this rowheader"
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "Full name",
+          "within": "table[name^='Member record for']"
+        }
+      ],
+      "output_name": "full_name",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "element_visible",
+        "locator": {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Full name",
+          "exact": true
+        }
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 8,
+      "id": "extract_date_of_birth",
+      "description": "Read 'Date of birth' from the member record",
+      "action": "extract",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Date of birth",
+          "exact": true,
+          "within": "table[name^='Member record for']",
+          "note": "value is the cell paired with this rowheader"
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "Date of birth",
+          "within": "table[name^='Member record for']"
+        }
+      ],
+      "output_name": "date_of_birth",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "element_visible",
+        "locator": {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Date of birth",
+          "exact": true
+        }
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 9,
+      "id": "extract_address",
+      "description": "Read 'Address' from the member record",
+      "action": "extract",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Address",
+          "exact": true,
+          "within": "table[name^='Member record for']",
+          "note": "value is the cell paired with this rowheader"
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "Address",
+          "within": "table[name^='Member record for']"
+        }
+      ],
+      "output_name": "address",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "element_visible",
+        "locator": {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Address",
+          "exact": true
+        }
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 10,
+      "id": "extract_savings_balance",
+      "description": "Read 'Savings balance' from the member record",
+      "action": "extract",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Savings balance",
+          "exact": true,
+          "within": "table[name^='Member record for']",
+          "note": "value is the cell paired with this rowheader"
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "Savings balance",
+          "within": "table[name^='Member record for']"
+        }
+      ],
+      "output_name": "savings_balance",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "outputs_non_empty",
+        "description": "all page-extracted outputs are populated",
+        "outputs": [
+          "member_id",
+          "full_name",
+          "savings_balance",
+          "date_of_birth",
+          "address"
+        ]
+      },
+      "retryable": true
+    }
+  ],
+  "risk_class": "read_only",
+  "requires_confirmation": false,
+  "expected_outcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member matched the search term.",
+      "classification": "business_outcome",
+      "terminal": true,
+      "detection": {
+        "kind": "any_of",
+        "exact": false,
+        "rules": [
+          {
+            "kind": "text_present",
+            "text": "No members matched that search.",
+            "exact": false
+          },
+          {
+            "kind": "text_present",
+            "text": "No such member.",
+            "exact": false
+          }
+        ]
+      }
+    },
+    {
+      "code": "ACCESS_DENIED",
+      "description": "The teller profile is not authorized to view this member's record.",
+      "classification": "business_outcome",
+      "terminal": true,
+      "detection": {
+        "kind": "any_of",
+        "exact": false,
+        "rules": [
+          {
+            "kind": "http_status",
+            "exact": false,
+            "status": 403
+          },
+          {
+            "kind": "aria_visible",
+            "role": "alert",
+            "name": "not authorized",
+            "exact": false
+          }
+        ]
+      }
+    },
+    {
+      "code": "SUPERVISOR_REVIEW_REQUIRED",
+      "description": "The record is flagged for supervisor review; a confirmation interstitial blocks the detail page. Replay reports this rather than clicking through.",
+      "classification": "business_outcome",
+      "terminal": true,
+      "detection": {
+        "kind": "aria_visible",
+        "role": "alertdialog",
+        "name": "Supervisor review required",
+        "exact": false
+      }
+    }
+  ],
+  "guardrails": {
+    "allowlist_routes": [
+      "/",
+      "/search",
+      "/member/*"
+    ],
+    "allowlist_action_types": [
+      "navigate",
+      "click",
+      "fill",
+      "extract"
+    ],
+    "denylist_text_patterns": [
+      "Transfer funds",
+      "Wire transfer",
+      "Close account"
+    ],
+    "max_steps": 20,
+    "forbid_offdomain_navigation": true
+  },
+  "escalation_policy": {
+    "max_retries_per_step": 2,
+    "retry_backoff_seconds": 1.5,
+    "human_handoff_timeout_seconds": 900.0,
+    "on_step_timeout": "retry",
+    "on_hard_failure": "escalate",
+    "on_unrecognized_dialog": "escalate",
+    "on_checkpoint_failure": "escalate"
+  },
+  "discovery": {
+    "run_id": "disc-2026-09-09-member-lookup-01",
+    "model": "claude-sonnet-5",
+    "goal": "Look up member M1001 and report their savings balance, starting from the teller console home page.",
+    "completed_at": "2026-09-09T15:20:00Z"
+  },
+  "policy_authored_by": "niramay (hand-authored example)"
+}

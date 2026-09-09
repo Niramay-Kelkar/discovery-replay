@@ -148,3 +148,113 @@ re-verify.
 - `target_app/README.md` — updated seeded-records table, the
   data-backed-vs-injected note, and the accessibility contract
 - this BUILD_LOG entry
+
+---
+
+## 2026-09-09 — Capability artifact schema: design doc + Pydantic models
+
+The typed contract discovery produces and replay consumes. Called out
+in the brief as a focal point, so it was done design-first.
+
+### Designed (`schema/DESIGN.md`)
+
+Written before any code. Covers:
+
+- **The mechanical / policy split and why it exists.** The mechanical
+  layer (inputs, outputs, steps, locators, checkpoints) is an observed,
+  generalized transcript of one successful run. The policy layer (risk
+  class, expected outcomes, guardrails, escalation policy) is *authored
+  separately* — a single green trajectory never observes a failure
+  state, so it cannot be the source of truth for how to handle one. The
+  schema keeps the two physically separate; the compiler emits empty
+  policy stubs and `policy_authored_by` gates replay. The three-way
+  outcome taxonomy (success / business outcome / hard failure) falls out
+  of this split.
+- **Ranked locator strategies.** Each step target carries an ordered
+  list, not one selector. Ranking = most semantically stable first:
+  `aria_role` (role + accessible name — tied to the app's a11y
+  contract, survives the hostile DOM) primary, `text_label` fallback,
+  `test_id` / `css` / `xpath` reserved. Compile from the field label,
+  not the discovered value.
+- **Checkpoints, including the `any_of` composite.** ACT → SETTLE →
+  CHECK. A step is satisfied if its element-visibility condition holds
+  **or** a recognized expected outcome is detected — without that, a
+  legitimate "no such record" answer looks like a hung page and burns
+  the retry budget. `outcome_matched` is the checkpoint kind that
+  bridges to the policy layer's outcome-detection.
+- **Typed inputs/outputs** as a contract (named, typed, required flag),
+  **risk classification + escalation policy** (retry budget that only
+  redoes SETTLE/CHECK, per-trigger actions for `on_step_timeout` /
+  `on_hard_failure` / `on_unrecognized_dialog` / `on_checkpoint_failure`,
+  same-session human handoff timeout), and **expected business
+  outcomes** (named codes + composable `DetectionRule`s off label /
+  structural signals).
+- Notes that the full discovery-side tool vocabulary is a separate
+  deliverable; the schema pins only the minimal replay-side action set.
+
+### Built (`agent/models.py`)
+
+Pydantic v2 models implementing DESIGN.md exactly:
+
+- `LocatorStrategy` — `extra="allow"`, open `kind` string, so a new
+  strategy type is additive with no migration. Knows `aria_role` and
+  `text_label` fields; validates each kind has enough to resolve.
+- `Checkpoint` — recursive; kinds `element_visible`, `text_present`,
+  `outputs_non_empty`, `outcome_matched`, `any_of`, `all_of`.
+- `Step` — ordinal, ranked `locators`, `ActionType`
+  (navigate/fill/select_option/click/press_key/extract), `SettleSpec`,
+  `checkpoint`; validates action-specific payloads and 1..N locator
+  ranks.
+- `InputParam` / `OutputParam` — named, `ParamType`
+  (string/integer/number/boolean/date/money), required flag.
+- `ExpectedOutcome` + `DetectionRule` (recursive:
+  text_present/aria_visible/http_status/url_matches/any_of/all_of).
+- `RiskClass` literal (`read_only` | `mutating`), `EscalationPolicy`
+  (retry counts + trigger→action mapping).
+- `Guardrails` (allowlist routes + action types, denylist text
+  patterns, max steps, off-domain nav).
+- Top-level `Capability` tying it together, with cross-field
+  validators: contiguous ordinals; `fill`/`extract` steps reference
+  declared params; template tokens resolve to inputs; guardrail action
+  allowlist covers every step action; `outcome_matched` /
+  detection-referenced codes resolve; exactly one terminal
+  `outputs_non_empty` step.
+
+### Worked example (`schema/build_example.py` → `schema/example_artifact.json`)
+
+Hand-authored `Capability` for the target app's member-lookup flow,
+constructed directly via the models and serialized to
+`schema/example_artifact.json` (same role that file served in the
+earlier related project). 10 steps (open search → choose field → enter
+term → submit → open detail → 5 label-targeted extracts), 3 expected
+outcomes (`MEMBER_NOT_FOUND`, `ACCESS_DENIED`,
+`SUPERVISOR_REVIEW_REQUIRED`), `read_only`, guardrails narrowed to
+`/`, `/search`, `/member/*`.
+
+### Verified
+
+- `python schema/build_example.py` builds and serializes with no
+  validation errors; `Capability.model_validate_json` round-trips the
+  written file.
+- Negative checks: undeclared `outcome_matched` code, an action missing
+  from the guardrail allowlist, and non-contiguous locator ranks each
+  raise `ValidationError` as intended.
+- The `open_member_detail` step's settle timeout (12s) sits above the
+  target app's injected ~4s slow load; its checkpoint is
+  `any_of[record table visible, any recognized outcome]` so
+  access-denied / supervisor-review are treated as answers, not hangs.
+
+### Bugs found and fixed
+
+- First draft only validated template tokens in `Step.value_template`;
+  the example uses `{{search_field}}` inside a locator `name`. Extended
+  the param-reference validator to scan locator `name` / `text` /
+  `label` too.
+
+### Committed
+
+- `schema/DESIGN.md`
+- `agent/models.py`, `agent/__init__.py`
+- `schema/build_example.py`, `schema/example_artifact.json`
+- `requirements.txt` (root) — `pydantic`
+- this BUILD_LOG entry
