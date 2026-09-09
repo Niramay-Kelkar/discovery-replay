@@ -94,6 +94,24 @@ build should not repeat those gaps:
 - `.env` / API keys never touch a terminal transcript, commit, or log
   line.
 
+## Commit conventions
+
+- No AI-attribution trailers or footers of any kind (no
+  "Co-Authored-By: Claude", no "Generated with Claude Code", no
+  emoji signatures). Commits are authored under Niramay's name only.
+- Commit messages should read like a competent engineer wrote them:
+  clear about what changed and why, but not a jargon dump. State the
+  behavior or capability that changed, not implementation minutiae.
+  - Good: "Add locator strategy for label-less form fields (hostile
+    table layout has no <label> association)"
+  - Too technical/noisy: "feat(locators): implement label_proximity
+    LOCATOR_REGISTRY.register decorator w/ scope.locator tr:has-text
+    XPath traversal fallback"
+  - Too vague: "fix stuff" / "wip" / "updates"
+- One logical change per commit. Don't bundle unrelated fixes into a
+  single commit "to save time" — this is a small project, there's no
+  cost to committing granularly, and it makes the history legible.
+
 ## Open / not yet decided
 
 (fill in as decisions arise)
