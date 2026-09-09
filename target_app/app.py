@@ -16,7 +16,15 @@ import time
 from flask import Flask, g, render_template, request
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "bank.db")
+
+# App-layer injected conditions, keyed by member ID. These are NOT record
+# facts -- they stand in for runtime behavior the replay layer must cope
+# with (transient slowness, an unrecognized confirmation dialog), so they
+# live in the route handler, not the database. access_denied, by
+# contrast, is a real column: it is a genuine fact about the record.
 SLOW_LOAD_SECONDS = 4
+SLOW_LOAD_IDS = {"M1003"}
+INTERSTITIAL_IDS = {"M1006"}
 
 app = Flask(__name__)
 
@@ -98,10 +106,12 @@ def member_detail(member_id):
     if row["access_denied"]:
         return render_template("access_denied.html", member_id=row["member_id"]), 403
 
-    if row["interstitial"] and request.args.get("confirm") != "yes":
-        return render_template("interstitial.html", member_id=row["member_id"])
+    canonical_id = row["member_id"]
 
-    if row["slow_load"]:
+    if canonical_id in INTERSTITIAL_IDS and request.args.get("confirm") != "yes":
+        return render_template("interstitial.html", member_id=canonical_id)
+
+    if canonical_id in SLOW_LOAD_IDS:
         time.sleep(SLOW_LOAD_SECONDS)
 
     member = dict(row)

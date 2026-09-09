@@ -75,3 +75,76 @@ again through the Chrome accessibility tree:
 - `target_app/` (app, schema, seed, templates, README, requirements)
 - `.gitignore` — ignore `target_app/bank.db`
 - this BUILD_LOG entry
+
+---
+
+## 2026-09-09 — target_app: move injected conditions to the app layer, add branch chrome
+
+### What changed and why
+
+**`slow_load` and `interstitial` are no longer DB columns.** They were
+modeled as per-row flags on the `members` table, which put an injected
+test condition on the same footing as real record data. They are now
+hardcoded member-ID sets checked in the `/member/<id>` route handler:
+
+- `SLOW_LOAD_IDS = {"M1003"}` — route sleeps 4s before rendering.
+- `INTERSTITIAL_IDS = {"M1006"}` — route serves the `role="alertdialog"`
+  confirmation unless `?confirm=yes`.
+
+`M1003` and `M1006` are now ordinary rows; the database says nothing
+special about them.
+
+**`access_denied` stays a real column.** The distinction is deliberate:
+`access_denied` is a genuine fact about that member's record — an
+authorization *business outcome* the replay layer should detect and
+report as a distinct result. The slow load and the interstitial are
+*runtime conditions* (transient slowness, an unrecognized dialog) that
+the replay layer must cope with but that are not properties of the data.
+Data-backed vs app-layer-injected now matches that split in the code.
+`schema.sql`, `seed.py`, and the README seeded-records table were
+updated to match, including a short "why the split" note in the README.
+
+**Added decorative branch chrome to `base.html`.** A right-hand column
+(`.col2`), built with the same nested `role="presentation"` tables and
+generic class names as the rest of the markup: branch name/address,
+lobby hours, and a generic FDIC / member-agreement disclaimer. Tied to
+no member data — pure structural/visual noise, the same category as the
+existing unrelated iframe (which moved into this column). It carries no
+interactive elements and no tables/landmarks, so in the accessibility
+tree it appears only as loose text nodes for automation to ignore.
+
+### Verified
+
+Reseeded, restarted on port 5001, rechecked all six cases by `curl` and
+the detail + sidebar via the Chrome accessibility tree:
+
+- **Happy path by ID** (`M1001`) — results → detail, balance
+  `$18,750.42`; detail still exposes `table "Member record for Alice
+  Nguyen"` with clean `rowheader`/`cell` pairs despite the new sidebar.
+- **Happy path by last name** (`Nguyen`) — one match → same detail.
+- **Access denied** (`M1002`) — HTTP 403, "Access Denied", no data.
+- **Slow load** (`M1003`) — detail returns after ~4.0s (measured);
+  confirmed the delay is now ID-driven (`M1001` detail returns in
+  ~0.03s, `M1003` search result is instant).
+- **Interstitial** (`M1006`) — `role="alertdialog"` "Supervisor review
+  required"; `?confirm=yes` → real record (Pat Ashwood).
+- **Not found** — search `M9999` / `Zzzznope` → "No members matched
+  that search." (HTTP 200); `/member/M9999` → "No such member."
+  (HTTP 404).
+- Sidebar noise (branch address, lobby hours, "Member FDIC") renders on
+  every page and surfaces only as `generic` text nodes — no new
+  landmarks, tables, or interactive elements.
+
+### Bugs found and fixed
+
+None. Straight refactor; all six cases behaved correctly on first
+re-verify.
+
+### Committed
+
+- `target_app/schema.sql`, `seed.py`, `app.py` — drop the two columns,
+  add `SLOW_LOAD_IDS` / `INTERSTITIAL_IDS` route checks
+- `target_app/templates/base.html` — decorative branch column
+- `target_app/README.md` — updated seeded-records table, the
+  data-backed-vs-injected note, and the accessibility contract
+- this BUILD_LOG entry

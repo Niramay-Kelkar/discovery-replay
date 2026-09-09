@@ -1,6 +1,11 @@
 -- Legacy bank demo: single member records table.
--- Flags on individual rows drive the deliberately hostile behaviors
--- (access denied, slow load, unexpected interstitial).
+--
+-- access_denied is a real column: it represents a genuine fact about a
+-- member's record (an authorization business outcome), not an injected
+-- test condition. The slow-load delay and the confirmation interstitial
+-- are NOT modeled here -- they are app-layer conditions keyed off member
+-- IDs in app.py, standing in for runtime behavior the replay layer must
+-- cope with rather than properties of the data.
 
 DROP TABLE IF EXISTS members;
 
@@ -13,7 +18,5 @@ CREATE TABLE members (
     phone           TEXT NOT NULL,
     email           TEXT NOT NULL,
     savings_balance INTEGER NOT NULL,   -- stored in cents
-    access_denied   INTEGER NOT NULL DEFAULT 0,
-    slow_load       INTEGER NOT NULL DEFAULT 0,
-    interstitial    INTEGER NOT NULL DEFAULT 0
+    access_denied   INTEGER NOT NULL DEFAULT 0
 );

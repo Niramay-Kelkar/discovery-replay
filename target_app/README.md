@@ -40,11 +40,18 @@ error.
 | Member ID | Last name | Purpose | How to reach it |
 |---|---|---|---|
 | `M1001` | `Nguyen` | **Happy path.** Normal record, found by ID and by last name. Balance $18,750.42. | search `M1001` / search `Nguyen` → View |
-| `M1002` | `Delgado` | **Access denied.** Row has `access_denied=1`; `/member/M1002` returns a clear "Access Denied" page with HTTP 403, never data. | search `M1002` → View |
-| `M1003` | `Kim` | **Slow load.** Row has `slow_load=1`; the detail page sleeps 4s before rendering, standing in for transient slowness. Search results are instant. | search `M1003` → View (wait ~4s) |
+| `M1002` | `Delgado` | **Access denied.** Row has `access_denied=1` (a real column); `/member/M1002` returns a clear "Access Denied" page with HTTP 403, never data. | search `M1002` → View |
+| `M1003` | `Kim` | **Slow load.** Ordinary DB row; `M1003` is in `SLOW_LOAD_IDS` in `app.py`, so the detail page sleeps 4s before rendering, standing in for transient slowness. Search results are instant. | search `M1003` → View (wait ~4s) |
 | `M1004` | `Okafor` | Extra normal record (padding, and a second happy-path option). | search `M1004` / `Okafor` |
 | `M1005` | `Santos` | Extra normal record. | search `M1005` / `Santos` |
-| `M1006` | `Ashwood` | **Unexpected interstitial.** Row has `interstitial=1`; `/member/M1006` shows a "Supervisor review required" confirmation dialog (`role="alertdialog"`) instead of the record. Clicking **Continue** (`/member/M1006?confirm=yes`) proceeds to the real detail page; **Cancel** returns to search. Stands in for an unrecognized runtime dialog a replay must detect and either handle or escalate on. | search `M1006` → View |
+| `M1006` | `Ashwood` | **Unexpected interstitial.** Ordinary DB row; `M1006` is in `INTERSTITIAL_IDS` in `app.py`, so `/member/M1006` shows a "Supervisor review required" confirmation dialog (`role="alertdialog"`) instead of the record. Clicking **Continue** (`/member/M1006?confirm=yes`) proceeds to the real detail page; **Cancel** returns to search. Stands in for an unrecognized runtime dialog a replay must detect and either handle or escalate on. | search `M1006` → View |
+
+**Why the split:** `access_denied` is a data-backed column because it is
+a genuine fact about the member's record — an authorization business
+outcome replay should report as such. The slow-load delay and the
+interstitial are *injected runtime conditions*, not record facts, so
+they are hardcoded ID sets checked in the route handler
+(`SLOW_LOAD_IDS`, `INTERSTITIAL_IDS`) rather than columns.
 
 ### Not-found behavior (verify, not seeded)
 
@@ -96,5 +103,10 @@ names (verified against the Chrome accessibility tree while building):
 **Every page**
 - An `iframe` titled **"Branch bulletin board"** is present and
   irrelevant — automation should ignore it.
+- A decorative right-hand column (branch address, lobby hours, a generic
+  FDIC/member-agreement disclaimer) is `role="presentation"`: it holds
+  no interactive elements and no tables/landmarks, so it surfaces only
+  as loose text nodes. It is tied to no member data — pure structural
+  noise, like the iframe. Automation should ignore it.
 - Layout `<table>`s are marked `role="presentation"` and do not appear
   in the tree.

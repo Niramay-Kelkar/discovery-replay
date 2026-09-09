@@ -9,10 +9,16 @@
   .box2 { background: #34506b; color: #fff; padding: 6px 10px; font-weight: bold; }
   .box3 { padding: 10px; }
   .box4 { background: #eeeee6; border: 1px solid #aaa; padding: 8px; }
+  .col1 { vertical-align: top; width: 620px; }
+  .col2 { vertical-align: top; width: 260px; background: #f4f4ec; border-left: 1px solid #bbb; padding: 8px; }
   .t1 { border-collapse: collapse; }
   .t1 td { padding: 3px 6px; vertical-align: top; }
+  .t2 { border-collapse: collapse; font-size: 11px; color: #444; }
+  .t2 td { padding: 2px 4px; vertical-align: top; }
   .c1 { font-weight: bold; background: #eeeee6; white-space: nowrap; }
   .c2 { background: #fff; }
+  .s1 { font-weight: bold; color: #34506b; border-bottom: 1px solid #ccc; display: block; margin: 6px 0 3px; }
+  .s2 { font-size: 10px; color: #777; line-height: 1.4; }
   .btn1 { padding: 3px 10px; }
   .msg1 { background: #ffe9c7; border: 1px solid #d9a441; padding: 8px; }
   .msg2 { background: #ffd6d6; border: 1px solid #c14545; padding: 8px; }
@@ -25,16 +31,51 @@
 <table role="presentation" width="100%"><tr><td class="box2">
   Cornerstone Savings &nbsp;·&nbsp; Teller Console
 </td></tr></table>
-<table role="presentation" width="100%"><tr><td class="box3">
+
+<table role="presentation" width="100%"><tr>
+  <td class="col1">
+    <table role="presentation" width="100%"><tr><td class="box3">
 
 {% block body %}{% endblock %}
 
-</td></tr></table>
-<table role="presentation" width="100%"><tr><td class="box3">
-  <!-- Unrelated iframe, required by the hostile-target spec. Content irrelevant. -->
-  <iframe title="Branch bulletin board" src="about:blank" width="280" height="60"
-          style="border:1px solid #999;"></iframe>
-</td></tr></table>
+    </td></tr></table>
+  </td>
+
+  <!-- Decorative branch chrome: pure structural noise, tied to no member
+       data. Marked presentation, like the unrelated iframe below. -->
+  <td class="col2" role="presentation">
+    <span class="s1">Branch</span>
+    <table class="t2" role="presentation">
+      <tr><td>Cornerstone Savings</td></tr>
+      <tr><td>1400 Commerce Plaza</td></tr>
+      <tr><td>Springfield, IL 62701</td></tr>
+      <tr><td>(217) 555-0100</td></tr>
+    </table>
+
+    <span class="s1">Lobby hours</span>
+    <table class="t2" role="presentation">
+      <tr><td>Mon&ndash;Thu</td><td>9:00a&ndash;5:00p</td></tr>
+      <tr><td>Fri</td><td>9:00a&ndash;6:00p</td></tr>
+      <tr><td>Sat</td><td>9:00a&ndash;1:00p</td></tr>
+      <tr><td>Sun</td><td>Closed</td></tr>
+    </table>
+
+    <span class="s1">Notice</span>
+    <table role="presentation"><tr><td class="s2">
+      Accounts are subject to the Cornerstone Savings Member Agreement
+      and applicable fee schedule. Balances shown reflect posted
+      transactions only and may not include pending items. Cornerstone
+      Savings is an Equal Housing Lender. Member FDIC.
+    </td></tr></table>
+
+    <table role="presentation"><tr><td class="box3">
+      <!-- Unrelated iframe, required by the hostile-target spec. -->
+      <iframe title="Branch bulletin board" src="about:blank"
+              width="230" height="50" style="border:1px solid #999;"></iframe>
+    </td></tr></table>
+  </td>
+</tr></table>
+
 </td></tr></table>
 </body>
 </html>

@@ -4,6 +4,12 @@ Run directly:  python -m target_app.seed   (or)   python target_app/seed.py
 
 Drops and recreates the members table every time so the demo target is
 always in a known state.
+
+Only genuine record facts live here. access_denied is a real column
+(an authorization business outcome). The slow-load delay and the
+confirmation interstitial are injected in app.py by member ID, not
+stored -- M1003 and M1006 are ordinary rows as far as the database is
+concerned.
 """
 import os
 import sqlite3
@@ -12,39 +18,39 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "bank.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 
 # (member_id, first, last, dob, address, phone, email, balance_cents,
-#  access_denied, slow_load, interstitial)
+#  access_denied)
 MEMBERS = [
     ("M1001", "Alice", "Nguyen", "1984-03-12",
      "412 Maple Street, Springfield, IL 62704",
      "(217) 555-0142", "alice.nguyen@example.com",
-     1875042, 0, 0, 0),
+     1875042, 0),
 
     ("M1002", "Robert", "Delgado", "1971-11-02",
      "89 Birchwood Lane, Dayton, OH 45402",
      "(937) 555-0199", "robert.delgado@example.com",
-     540388, 1, 0, 0),
+     540388, 1),
 
+    # Ordinary row. app.py injects a slow detail-page load for this ID.
     ("M1003", "Sandra", "Kim", "1990-07-25",
      "1200 Lakeshore Drive, Apt 5B, Chicago, IL 60611",
      "(312) 555-0177", "sandra.kim@example.com",
-     9032150, 0, 1, 0),
+     9032150, 0),
 
     ("M1004", "James", "Okafor", "1965-01-30",
      "77 Cedar Court, Columbus, OH 43215",
      "(614) 555-0163", "james.okafor@example.com",
-     221975, 0, 0, 0),
+     221975, 0),
 
     ("M1005", "Maria", "Santos", "1988-09-14",
      "305 Willow Bend, Peoria, IL 61602",
      "(309) 555-0121", "maria.santos@example.com",
-     4500000, 0, 0, 0),
+     4500000, 0),
 
-    # Triggers an unexpected confirmation interstitial before the detail
-    # page. Standing in for an unrecognized runtime dialog.
+    # Ordinary row. app.py injects a confirmation interstitial for this ID.
     ("M1006", "Pat", "Ashwood", "1979-05-08",
      "58 Junction Road, Akron, OH 44301",
      "(330) 555-0110", "pat.ashwood@example.com",
-     1200000, 0, 0, 1),
+     1200000, 0),
 ]
 
 
@@ -55,7 +61,7 @@ def build(db_path=DB_PATH):
     try:
         conn.executescript(schema)
         conn.executemany(
-            "INSERT INTO members VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO members VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             MEMBERS,
         )
         conn.commit()
