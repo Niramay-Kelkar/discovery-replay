@@ -1,4 +1,4 @@
-# target_app — "Cornerstone Savings" legacy bank demo
+# target_app — "Acme Savings" legacy bank demo
 
 The proxy target the discovery/replay system automates against. It is a
 small, deliberately hostile server-rendered web app: nested `<table>`

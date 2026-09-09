@@ -330,4 +330,10 @@ not-found (both wordings), and the interstitial (now with a direct
 - `target_app/templates/interstitial.html`, `target_app/app.py`
 - `schema/build_example.py`, `schema/example_artifact.json`
 - this BUILD_LOG entry
+
+---
+
+## 2026-09-09 — Swap visible "Cornerstone Savings" branding to "Acme Savings"
+
+Replaced the on-screen "Cornerstone Savings" text (page titles, header, decorative sidebar) in `target_app/templates/base.html` with "Acme Savings", matching the `target.app` rename; no route names, IDs, class names, or accessibility role/name contract touched, and the README accessible-name contract is unaffected (only its line-1 heading updated for consistency).
 - this BUILD_LOG entry
