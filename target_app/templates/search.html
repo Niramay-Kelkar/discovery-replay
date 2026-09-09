@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Member Search{% endblock %}
+{% block body %}
+
+<table role="presentation"><tr><td class="box4">
+
+{% if error %}
+<table role="presentation"><tr><td class="msg1" role="alert">{{ error }}</td></tr></table>
+<br>
+{% endif %}
+
+<form action="/search" method="get" role="search" aria-label="Member search">
+<table class="t1" role="presentation">
+  <tr>
+    <td>
+      <fieldset role="radiogroup" aria-label="Search by">
+        <legend>Search by</legend>
+        <input type="radio" name="field" value="member_id" id="f-id"
+               aria-label="Member ID" checked>
+        <label for="f-id">Member ID</label>
+        &nbsp;&nbsp;
+        <input type="radio" name="field" value="last_name" id="f-ln"
+               aria-label="Last name">
+        <label for="f-ln">Last name</label>
+      </fieldset>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <input type="text" name="q" value=""
+             aria-label="Search term (member ID or last name)" size="30">
+      <button type="submit" class="btn1">Look Up</button>
+    </td>
+  </tr>
+</table>
+</form>
+
+</td></tr></table>
+
+{% endblock %}

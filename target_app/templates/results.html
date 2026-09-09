@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Search Results{% endblock %}
+{% block body %}
+
+<table role="presentation"><tr><td class="box3">
+  <span>Results for
+    {{ "member ID" if field == "member_id" else "last name" }}
+    &ldquo;{{ query }}&rdquo;</span>
+</td></tr></table>
+
+{% if results %}
+<table role="presentation"><tr><td class="box4">
+<table class="t1" role="table" aria-label="Member search results">
+  <caption>Matching members ({{ results|length }})</caption>
+  <thead>
+    <tr>
+      <th scope="col" role="columnheader">Member ID</th>
+      <th scope="col" role="columnheader">Name</th>
+      <th scope="col" role="columnheader">City</th>
+      <th scope="col" role="columnheader">Detail</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in results %}
+    <tr>
+      <td role="cell">{{ r.member_id }}</td>
+      <td role="cell">{{ r.name }}</td>
+      <td role="cell">{{ r.city }}</td>
+      <td role="cell">
+        <a href="/member/{{ r.member_id }}"
+           aria-label="Open detail for {{ r.name }}, member {{ r.member_id }}">View</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</td></tr></table>
+{% else %}
+<table role="presentation"><tr><td class="msg1" role="status">
+  No members matched that search.
+</td></tr></table>
+{% endif %}
+
+<br>
+<a href="/">New search</a>
+
+{% endblock %}

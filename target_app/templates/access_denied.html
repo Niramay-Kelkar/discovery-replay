@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Access Denied{% endblock %}
+{% block body %}
+
+<table role="presentation"><tr><td class="msg2" role="alert">
+  <strong>Access Denied</strong><br>
+  Your teller profile is not authorized to view member
+  {{ member_id }}. Contact a branch supervisor for an override.
+</td></tr></table>
+
+<br>
+<a href="/">New search</a>
+
+{% endblock %}

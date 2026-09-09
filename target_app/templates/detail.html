@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ m.full_name }}{% endblock %}
+{% block body %}
+
+<table role="presentation"><tr><td class="box2">
+  Member Record — {{ m.full_name }}
+</td></tr></table>
+
+<table role="presentation"><tr><td class="box4">
+<table class="t1" role="table" aria-label="Member record for {{ m.full_name }}">
+  <tbody>
+    <tr>
+      <th scope="row" role="rowheader" class="c1">Member ID</th>
+      <td role="cell" class="c2">{{ m.member_id }}</td>
+    </tr>
+    <tr>
+      <th scope="row" role="rowheader" class="c1">Full name</th>
+      <td role="cell" class="c2">{{ m.full_name }}</td>
+    </tr>
+    <tr>
+      <th scope="row" role="rowheader" class="c1">Date of birth</th>
+      <td role="cell" class="c2">{{ m.date_of_birth }}</td>
+    </tr>
+    <tr>
+      <th scope="row" role="rowheader" class="c1">Address</th>
+      <td role="cell" class="c2">{{ m.address }}</td>
+    </tr>
+    <tr>
+      <th scope="row" role="rowheader" class="c1">Phone</th>
+      <td role="cell" class="c2">{{ m.phone }}</td>
+    </tr>
+    <tr>
+      <th scope="row" role="rowheader" class="c1">Email</th>
+      <td role="cell" class="c2">{{ m.email }}</td>
+    </tr>
+    <tr>
+      <th scope="row" role="rowheader" class="c1">Savings balance</th>
+      <td role="cell" class="c2">{{ m.savings_balance_display }}</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr></table>
+
+<br>
+<a href="/">New search</a>
+
+{% endblock %}

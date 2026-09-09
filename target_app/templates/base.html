@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}Members{% endblock %} — Cornerstone Savings (Teller Console)</title>
+<style>
+  body { font-family: Verdana, Geneva, sans-serif; font-size: 13px; background: #d9d9cf; margin: 0; }
+  .div1 { width: 900px; margin: 0 auto; background: #fff; border: 2px solid #666; }
+  .box2 { background: #34506b; color: #fff; padding: 6px 10px; font-weight: bold; }
+  .box3 { padding: 10px; }
+  .box4 { background: #eeeee6; border: 1px solid #aaa; padding: 8px; }
+  .t1 { border-collapse: collapse; }
+  .t1 td { padding: 3px 6px; vertical-align: top; }
+  .c1 { font-weight: bold; background: #eeeee6; white-space: nowrap; }
+  .c2 { background: #fff; }
+  .btn1 { padding: 3px 10px; }
+  .msg1 { background: #ffe9c7; border: 1px solid #d9a441; padding: 8px; }
+  .msg2 { background: #ffd6d6; border: 1px solid #c14545; padding: 8px; }
+  a { color: #1a3f66; }
+</style>
+</head>
+<body>
+<!-- Layout tables are marked presentation so they stay out of the a11y tree. -->
+<table class="div1" role="presentation"><tr><td>
+<table role="presentation" width="100%"><tr><td class="box2">
+  Cornerstone Savings &nbsp;·&nbsp; Teller Console
+</td></tr></table>
+<table role="presentation" width="100%"><tr><td class="box3">
+
+{% block body %}{% endblock %}
+
+</td></tr></table>
+<table role="presentation" width="100%"><tr><td class="box3">
+  <!-- Unrelated iframe, required by the hostile-target spec. Content irrelevant. -->
+  <iframe title="Branch bulletin board" src="about:blank" width="280" height="60"
+          style="border:1px solid #999;"></iframe>
+</td></tr></table>
+</td></tr></table>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Not Found{% endblock %}
+{% block body %}
+
+<table role="presentation"><tr><td class="msg1" role="status">
+  <strong>No such member.</strong>
+  No member record exists for &ldquo;{{ query }}&rdquo;.
+</td></tr></table>
+
+<br>
+<a href="/">New search</a>
+
+{% endblock %}

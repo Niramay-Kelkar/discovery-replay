@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Confirm{% endblock %}
+{% block body %}
+
+<table role="presentation"><tr><td class="box4">
+<div role="alertdialog" aria-modal="true"
+     aria-labelledby="idlg-h" aria-describedby="idlg-b">
+  <table class="t1" role="presentation">
+    <tr><td id="idlg-h" class="c1">Supervisor review required</td></tr>
+    <tr><td id="idlg-b">
+      Member {{ member_id }} is flagged for supervisor review.
+      Do you want to continue to the full record?
+    </td></tr>
+    <tr><td>
+      <a href="/member/{{ member_id }}?confirm=yes" role="button"
+         class="btn1" aria-label="Continue to member record">Continue</a>
+      &nbsp;
+      <a href="/" role="button" class="btn1"
+         aria-label="Cancel and return to search">Cancel</a>
+    </td></tr>
+  </table>
+</div>
+</td></tr></table>
+
+{% endblock %}
