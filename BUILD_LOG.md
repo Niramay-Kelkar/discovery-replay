@@ -1248,3 +1248,42 @@ refusal (`_preflight`) is real either way.
 ### Committed
 
 - `REPORT.md`, this BUILD_LOG entry
+
+---
+
+## 2026-09-10 — Align schema/example_artifact.json with the v1.1.0 artifact
+
+The previous DESIGN.md reconciliation deliberately left
+`schema/example_artifact.json` untouched. That left the hand-authored
+sample describing an older shape: `version` `1.0.0`, and five extract
+outputs (`member_id`, `full_name`, `savings_balance`, `date_of_birth`,
+`address`). The real capability returns two, plus the compiler-appended
+`outcome_code`. Brought the sample in line so it illustrates the schema
+as it actually stands.
+
+### Changed (`schema/example_artifact.json`)
+
+- `version` `1.0.0` → `1.1.0`.
+- outputs: dropped `member_id`, `date_of_birth`, `address`; kept
+  `full_name`, `savings_balance`, `outcome_code`.
+- removed the three corresponding `extract` steps; renumbered the
+  remaining steps to a contiguous 1..7.
+- terminal `outputs_non_empty` checkpoint list narrowed to
+  `["full_name", "savings_balance"]`.
+- `inputs` (`search_field` / `search_term`) and `target.app`
+  (`acme-teller-console`) already matched; left as-is.
+
+The `discovery` block stays as its own illustrative run (`M1001`, ID
+lookup) — the sample is not the compiled artifact and does not need to
+share its provenance.
+
+### Verified
+
+`Capability.model_validate(json.load(...))` passes: `capability_id`
+`member_lookup`, `version` `1.1.0`, outputs `['full_name',
+'savings_balance', 'outcome_code']`, step ordinals `[1..7]`, exactly one
+`outputs_non_empty` terminal step. Full suite: 44 passed.
+
+### Committed
+
+- `schema/example_artifact.json`, this BUILD_LOG entry

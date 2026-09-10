@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "capability_id": "member_lookup",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Look up a credit-union member by member ID or last name and return their record and current savings balance.",
   "target": {
     "app": "acme-teller-console",
@@ -30,12 +30,6 @@
   ],
   "outputs": [
     {
-      "name": "member_id",
-      "type": "string",
-      "required": true,
-      "description": "The member's ID."
-    },
-    {
       "name": "full_name",
       "type": "string",
       "required": true,
@@ -46,18 +40,6 @@
       "type": "money",
       "required": true,
       "description": "Current savings balance, as rendered."
-    },
-    {
-      "name": "date_of_birth",
-      "type": "date",
-      "required": true,
-      "description": "The member's date of birth."
-    },
-    {
-      "name": "address",
-      "type": "string",
-      "required": true,
-      "description": "The member's mailing address."
     },
     {
       "name": "outcome_code",
@@ -262,46 +244,6 @@
     },
     {
       "ordinal": 6,
-      "id": "extract_member_id",
-      "description": "Read 'Member ID' from the member record",
-      "action": "extract",
-      "locators": [
-        {
-          "kind": "aria_role",
-          "rank": 1,
-          "role": "rowheader",
-          "name": "Member ID",
-          "exact": true,
-          "within": "table[name^='Member record for']",
-          "note": "value is the cell paired with this rowheader"
-        },
-        {
-          "kind": "text_label",
-          "rank": 2,
-          "exact": true,
-          "label": "Member ID",
-          "within": "table[name^='Member record for']"
-        }
-      ],
-      "output_name": "member_id",
-      "settle": {
-        "wait_for": "dom_stable",
-        "max_wait_seconds": 2.0
-      },
-      "checkpoint": {
-        "kind": "element_visible",
-        "locator": {
-          "kind": "aria_role",
-          "rank": 1,
-          "role": "rowheader",
-          "name": "Member ID",
-          "exact": true
-        }
-      },
-      "retryable": true
-    },
-    {
-      "ordinal": 7,
       "id": "extract_full_name",
       "description": "Read 'Full name' from the member record",
       "action": "extract",
@@ -341,87 +283,7 @@
       "retryable": true
     },
     {
-      "ordinal": 8,
-      "id": "extract_date_of_birth",
-      "description": "Read 'Date of birth' from the member record",
-      "action": "extract",
-      "locators": [
-        {
-          "kind": "aria_role",
-          "rank": 1,
-          "role": "rowheader",
-          "name": "Date of birth",
-          "exact": true,
-          "within": "table[name^='Member record for']",
-          "note": "value is the cell paired with this rowheader"
-        },
-        {
-          "kind": "text_label",
-          "rank": 2,
-          "exact": true,
-          "label": "Date of birth",
-          "within": "table[name^='Member record for']"
-        }
-      ],
-      "output_name": "date_of_birth",
-      "settle": {
-        "wait_for": "dom_stable",
-        "max_wait_seconds": 2.0
-      },
-      "checkpoint": {
-        "kind": "element_visible",
-        "locator": {
-          "kind": "aria_role",
-          "rank": 1,
-          "role": "rowheader",
-          "name": "Date of birth",
-          "exact": true
-        }
-      },
-      "retryable": true
-    },
-    {
-      "ordinal": 9,
-      "id": "extract_address",
-      "description": "Read 'Address' from the member record",
-      "action": "extract",
-      "locators": [
-        {
-          "kind": "aria_role",
-          "rank": 1,
-          "role": "rowheader",
-          "name": "Address",
-          "exact": true,
-          "within": "table[name^='Member record for']",
-          "note": "value is the cell paired with this rowheader"
-        },
-        {
-          "kind": "text_label",
-          "rank": 2,
-          "exact": true,
-          "label": "Address",
-          "within": "table[name^='Member record for']"
-        }
-      ],
-      "output_name": "address",
-      "settle": {
-        "wait_for": "dom_stable",
-        "max_wait_seconds": 2.0
-      },
-      "checkpoint": {
-        "kind": "element_visible",
-        "locator": {
-          "kind": "aria_role",
-          "rank": 1,
-          "role": "rowheader",
-          "name": "Address",
-          "exact": true
-        }
-      },
-      "retryable": true
-    },
-    {
-      "ordinal": 10,
+      "ordinal": 7,
       "id": "extract_savings_balance",
       "description": "Read 'Savings balance' from the member record",
       "action": "extract",
@@ -452,11 +314,8 @@
         "kind": "outputs_non_empty",
         "description": "all page-extracted outputs are populated",
         "outputs": [
-          "member_id",
           "full_name",
-          "savings_balance",
-          "date_of_birth",
-          "address"
+          "savings_balance"
         ]
       },
       "retryable": true
