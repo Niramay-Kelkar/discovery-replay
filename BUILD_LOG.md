@@ -1022,3 +1022,34 @@ unaffected. Full suite still 42 passed.
 (The discovery/replay/escalation runs done to verify the runbook stay
 under `evidence/runs/`, `evidence/replays/`, `evidence/sessions/` and
 are git-ignored — not committed.)
+
+---
+
+## 2026-09-10 — README Setup and Demo path
+
+Filled in the two `README.md` placeholders. Setup: Python 3.11+ / venv /
+`pip install -r requirements.txt` / `playwright install chromium`,
+`.env.example` -> `.env` for `ANTHROPIC_API_KEY`, and starting
+`target_app` on 5001. Demo path: a single copy-paste-in-order
+discover -> compile -> replay for `member_lookup`, ending in a Success
+with James Okafor's record; a one-line note that the same artifact also
+replays by member ID; and a link to `VERIFICATION.md` as the full
+scenario-by-scenario runbook (business outcomes, slow load, escalation).
+Commands were pulled from `VERIFICATION.md` and re-run verbatim against
+the current codebase before finalizing.
+
+Also tightened the pre-code "How it works" section where it had drifted
+from the build: discovery observes the page (not "the screen"); the
+runtime conditions replay reports are the ones actually seeded (slow
+pages, not-found, denials, review gates — not "validation errors"); and
+escalation now describes the real mechanism — pause, hand the *same*
+live browser session to an operator via the console, resume by
+re-checking the paused step without re-running its action, or fail
+cleanly on timeout.
+
+No "Project structure" section exists yet, so the VERIFICATION.md
+pointer lives in the Demo path for now. `REPORT.md` untouched.
+
+### Committed
+
+- `README.md`, this BUILD_LOG entry
