@@ -606,3 +606,117 @@ data or claim anything the run didn't prove.
 - `agent/tests/test_compile.py`
 - `evidence/compiled/member_lookup.capability.json` + `.notes.md`
 - BUILD_LOG entries for Phase 4 (the compiler and this fix)
+
+---
+
+## 2026-09-10 — Replay engine: deterministic execution of a compiled Capability
+
+Phase 5. Takes a compiled `Capability` + input params and drives the
+live target app through the recorded steps with no LLM anywhere in the
+decision loop. Every choice is a lookup against the artifact.
+
+### Built
+
+- **`agent/replay.py`** — the engine.
+  - **ACT → SETTLE → CHECK per step, with ACT structurally single-shot.**
+    `_act` is a separate method called exactly once, *before* the
+    settle/check retry loop is entered. Retries (automatic per
+    `escalation_policy.max_retries_per_step`, or a future human-resumed
+    run) re-enter only `_settle_and_check`. Re-firing a completed action
+    — the way a replay double-submits a mutating step — is not possible
+    to express, not just discouraged.
+  - **Four-way result contract, as distinct types** (`Success`,
+    `BusinessOutcome`, `HardFailure`, `PendingEscalation`), each a
+    dataclass with a `status` discriminator and `to_dict()`. `Success`
+    carries every declared output + `outcome_code="SUCCESS"`;
+    `BusinessOutcome` the matched code/description/step;
+    `HardFailure` the step, phase, trigger, expected vs observed (enough
+    to debug without a stack trace); `PendingEscalation` the same debug
+    fields plus the configured escalation action — returned cleanly when
+    `escalation_policy` says *escalate* rather than *retry*, so the
+    later human-handoff phase hooks in here without touching the loop.
+  - **Locator resolution reuses `Perception.resolve`** — the same exact
+    accessible-name matcher discovery uses. `resolve` gained an `exact`
+    keyword (default `True`; discovery never passes it) so replay can
+    honour the compiler's deliberately-generalised substring locators
+    (`"Open detail for"` + `nth`). `text_label` / `css` / `xpath`
+    fallbacks are normalised to the same one-visible-element-or-raise
+    contract. No second resolver.
+  - **Checkpoint evaluation** (`agent/checkpoints.py`) — a general
+    evaluator with one handler per `CheckpointKind`, coverage asserted
+    at import against `get_args(CheckpointKind)` so a new schema kind
+    fails loudly instead of silently always-passing. Covers `any_of` /
+    `all_of` composites and `outcome_matched` (which consults the
+    outcome-detection verdict, doesn't re-implement it).
+  - **Outcome detection** (`agent/outcome_detection.py`) — its own
+    module, per CLAUDE.md. Evaluates the `DetectionRule` tree
+    (`text_present` / `aria_visible` / `http_status` / `url_matches` /
+    `any_of` / `all_of`); same import-time kind-coverage guard. Main-
+    frame document status is captured off a Playwright `response`
+    listener so `http_status` rules (ACCESS_DENIED = 403) work after a
+    navigating click, not just a `goto`.
+  - **Guardrails enforced at run time.** Action-type allowlist checked
+    at preflight and per step; `navigate` target route and the landed
+    URL after every navigate/click checked against
+    `allowlist_routes` (glob) and `forbid_offdomain_navigation` — a
+    violation hard-fails, it does not retry. `denylist_text_patterns`
+    scanned on the live page after each settle and again before any
+    mutating action.
+  - **Preflight** refuses to run if `policy_authored_by` is unset
+    (DESIGN §1) or a required input is missing/empty.
+- **`agent/replay_cli.py`** — `--capability`, repeatable `--input
+  NAME=VALUE`, `--base-url`, `--headed`, `--json`. Exit 0 for Success or
+  BusinessOutcome (both are answers the caller asked for), 1 for
+  HardFailure, 3 for PendingEscalation. Prints real output values to
+  stdout; never writes them to a file.
+- **`agent/perception.py`** — `read_paired_value()` added: from a
+  resolved label element (the `rowheader` the compiler targets), step
+  across to the value cell in the same row. Discovery reads the value
+  element directly; replay lands on the label, so it needs the inverse
+  walk. Kept in `perception.py` so both sides share one notion of the
+  page.
+
+### Evidence / redaction
+
+Structured JSONL per run at `evidence/replays/<run_id>/replay.jsonl`
+(step, phase, action, locator used, checkpoint trace, settle timing,
+attempts, matched outcome). Extracted output values and input values are
+**redacted** in the log (`"A…n (len 12)"`) — verified end-to-end: a grep
+for every seeded member's name/ID/balance across `evidence/replays/`
+comes back empty. The unredacted result object goes to the caller
+in-process and to CLI stdout only; nothing writes it to disk.
+
+### Verified — live runs against `target_app` on port 5001
+
+- **Happy path** — `search_term=M1001` → **Success** in 6 steps,
+  `full_name="Alice Nguyen"`, `savings_balance="$18,750.42"`,
+  `outcome_code="SUCCESS"`. Evidence: `replay-20260910-071359`.
+- **Business outcome** — `search_term=M1002` → **BusinessOutcome**
+  `ACCESS_DENIED` at step `click_open_detail_for` in 4 steps (not a
+  crash, not a hang; the `any_of[element_visible, outcome_matched]`
+  checkpoint recognised the 403 + `role="alert"` page as a legitimate
+  answer). Evidence: `replay-20260910-071403`.
+- Spot-checked `search_term=M9999` → **BusinessOutcome**
+  `MEMBER_NOT_FOUND` at `click_look_up`, exit 0.
+
+### Tests
+
+- `agent/tests/test_replay.py` (offline, no browser/API): checkpoint +
+  detection kind coverage, `any_of` short-circuit on outcome match,
+  `outputs_non_empty` default, redaction hides the value / keeps shape,
+  route-glob matching rejects arbitrary paths, preflight refuses an
+  unauthored policy and missing inputs, the four result types are
+  distinct and serialisable.
+- `agent/tests/test_correctness_guards.py` updated: `resolve` now
+  asserts the `exact` param defaults to `True` and is threaded through,
+  rather than string-matching the old signature.
+- Full suite: 32 passed.
+
+### Committed
+
+- `agent/perception.py`, `agent/tests/test_correctness_guards.py`
+- `agent/replay.py`, `agent/replay_cli.py`, `agent/checkpoints.py`,
+  `agent/outcome_detection.py`, `agent/tests/test_replay.py`
+- `evidence/replays/replay-20260910-071359`,
+  `evidence/replays/replay-20260910-071403`
+- this BUILD_LOG entry
