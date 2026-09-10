@@ -982,3 +982,43 @@ suite: 42 passed.
 (Raw evidence for `disc-20260910-084016` and the two replays stays under
 `evidence/runs/` and `evidence/replays/` and is git-ignored — not
 committed.)
+
+---
+
+## 2026-09-10 — Verification runbook (`VERIFICATION.md`)
+
+Added `VERIFICATION.md` at the repo root: a manual verification runbook
+covering every seeded `target_app` scenario with the exact commands,
+each one actually run and confirmed before being written down. Nine
+sections — start the app; replay happy-path by Member ID and by Last
+name; the three recognized business outcomes (access-denied, not-found,
+supervisor-review); the slow-load case; the full M1007 escalation /
+operator-console / CDP-handoff / resume sequence; and a discovery ->
+compile -> replay end-to-end. Each step documents the correct result
+and what a wrong result looks like, so it is useful for spotting a
+regression, not just confirming green.
+
+Standalone reference for now; the demo-path parts get folded into
+`README.md` in a later pass. Not touching `README.md` / `REPORT.md`
+yet.
+
+### Bug surfaced and fixed while writing it
+
+The slow-load scenario (M1003, `/member/<id>` sleeps ~4s) hard-failed:
+`_act`'s `click` used a fixed 4000ms Playwright timeout, and a click
+that triggers navigation is held until that navigation settles, so the
+injected delay tripped ACT before SETTLE ever ran. The compiler already
+widens a navigating click's settle bound to 12s for exactly this
+reason; `_act` now honours `step.settle.max_wait_seconds` for the click
+timeout (floored at 4s) instead of ignoring it. M1003 now replays to
+Success in ~8s; the instant pages (M1001/M1002/M1006/M1007) are
+unaffected. Full suite still 42 passed.
+
+### Committed
+
+- `agent/replay.py` (click honours the step's settle bound)
+- `VERIFICATION.md`, this BUILD_LOG entry
+
+(The discovery/replay/escalation runs done to verify the runbook stay
+under `evidence/runs/`, `evidence/replays/`, `evidence/sessions/` and
+are git-ignored — not committed.)
