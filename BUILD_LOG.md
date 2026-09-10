@@ -440,3 +440,169 @@ Real run against the live target app with the real
 - `evidence/runs/disc-20260909-182538/` — trajectory, JSONL log,
   6 screenshots
 - this BUILD_LOG entry
+---
+
+## 2026-09-09 — The compiler (`agent/compile.py`, `agent/compile_cli.py`)
+
+### Built
+
+The seam between discovery's raw trajectory and the artifact a caller
+invokes. Two hard rules, both enforced in code:
+
+1. **Policy is never derived from the trajectory.** A single green run
+   only proves the happy path. `risk_class`, `expected_outcomes`,
+   `escalation_policy`, denylist patterns, and any route allowlisted
+   beyond what was visited all come from a hand-authored `PolicySpec`
+   that the compiler merges in. Required `PolicySpec` fields have no
+   default — a missing one is a `ValidationError` at construction, which
+   the CLI surfaces as a clear failure. `compile_capability` also hard-
+   fails on an empty `expected_outcomes` (rather than treating every
+   non-happy page as a hard failure) and on a non-`completed` trajectory.
+
+2. **No fabricated steps/locators/scopes.** Each `ok` `TrajectoryStep`
+   (except `done`) becomes one `Step`, using the exact role+name that
+   resolved live as the rank-1 locator. The one synthesized step is the
+   leading `navigate` to `entry_path` — a recorded fact, not an
+   invention (documented in the notes sidecar).
+
+- `PolicySpec` / `InputBinding` models live in `compile.py`.
+  `InputBinding` carries the literal a param stood in for during
+  discovery (`search_term` ← `"M1001"`), since discovery only recorded a
+  free-text goal.
+- `agent/policies/member_lookup.py` — the hand-authored policy + input
+  binding set for the Phase 3 trajectory. Reuses the three expected
+  outcomes from `schema/example_artifact.json` (already verified against
+  the live app). Its docstring and a `known_gaps` entry document the
+  `search_field` gap in full.
+- `CompileNotes` sidecar (`*.notes.md`) — every compile-time decision
+  that is not a 1:1 copy of the trajectory: synthesized steps, locator
+  generalizations, value parameterizations, trajectory gaps left
+  unfilled, guardrail narrowing.
+
+Mechanical compilation details:
+
+- **Checkpoints** derive from the compiled sequence: step *i*'s
+  checkpoint asserts step *i+1*'s rank-1 locator is visible; the last
+  step's is `outputs_non_empty` over the extracted outputs. Every
+  checkpoint is `any_of[…, outcome_matched]` so a recognized business
+  outcome satisfies it instead of hanging.
+- **Extract steps** compile their locator and checkpoint from the
+  captured `label` ("Savings balance"), never the discovered value
+  ("$18,750.42"). Rank-2 is a `text_label` on the same label (the label
+  association was confirmed live via `label_source`).
+- **Link name generalization**: the discovered link name "Open detail
+  for Alice Nguyen, member M1001" carries member data not known before
+  the step, so it is truncated to the stable prefix "Open detail for"
+  with `exact=false`, `nth=0`.
+- **`allowlist_routes`** narrowed to the paths actually visited
+  (`/`, `/search`, `/member/*` — the `M1001` segment is replaced with
+  `*` because it matches a discovered input value), not discovery's
+  wide-open scope.
+
+### Trajectory gaps recorded (not filled)
+
+- **`search_field` radio** — discovery never clicked it ("Member ID" was
+  pre-checked). Compiled capability has only a `search_term` input and
+  searches by ID. Two-mode support needs a second discovery run or a
+  hand-authored step; the compiler does neither automatically.
+- **No `within` scope on extract locators** — discovery resolved value
+  cells directly and never resolved the "Member record for …" table, so
+  the compiler has no verified table name to scope to. Left page-wide;
+  hardening needs a second discovery pass.
+
+### Verified
+
+- New `agent/tests/test_compile.py` (16 assertions, offline): happy-path
+  step shape, parameterization, label-not-value extraction, link
+  generalization, checkpoint chaining, route narrowing, policy taken
+  verbatim, gap surfaced; and the failure paths — missing policy field,
+  empty `expected_outcomes`, non-completed trajectory, label-less
+  extract, unbound fill literal.
+- Full suite: 16 passed.
+- Ran the compiler against the real Phase 3 trajectory
+  (`disc-20260909-182538`). Output:
+  `evidence/compiled/member_lookup.capability.json` (6 steps, 1 input,
+  3 outputs, 3 expected outcomes) + `.notes.md`. Round-trips through the
+  `Capability` model.
+
+### Compiled-vs-hand-authored (`schema/example_artifact.json`)
+
+- **Agree**: two-layer split, `aria_role` rank-1 locators, label-based
+  extraction, `any_of[element_visible, outcome_matched]` checkpoints,
+  the three expected outcomes, the escalation policy, `read_only` /
+  no-confirmation, the `/`, `/search`, `/member/*` allowlist, the
+  denylist tripwires.
+- **Differ, informatively**:
+  - The example has a `choose_search_field` step + `search_field` enum
+    input; the compiled artifact does not — the example is a human
+    asserting both modes work, which a compiler may not do from one run.
+  - The example's extract locators carry `within="table[name^='Member
+    record for']"`; the compiled ones do not — discovery never resolved
+    that table.
+  - The example's non-terminal extract checkpoints assert the step's
+    *own* rowheader; the compiled ones assert the *next* step's target
+    (reaching step *i+1* is what proves step *i* landed).
+  - Output names: the trajectory used `member_name`; the example uses
+    `full_name`. The compiler preserves what discovery recorded.
+  - The example's "submit search" checkpoint accepts only
+    `MEMBER_NOT_FOUND`; the compiled one accepts any recognized outcome
+    (uniform `outcome_matched` with no code).
+  These differences are the REPORT determinism argument: everything the
+  compiler emits is traceable to a line in the trajectory or a field in
+  the PolicySpec, and everything it *can't* know shows up as a narrower
+  artifact plus a notes entry — never as a plausible guess.
+
+### Committed
+
+- `agent/compile.py`, `agent/compile_cli.py`
+- `agent/policies/__init__.py`, `agent/policies/member_lookup.py`
+- `agent/tests/test_compile.py`
+- `evidence/compiled/member_lookup.capability.json` + `.notes.md`
+- this BUILD_LOG entry
+
+---
+
+## 2026-09-10 — Compiler: output name normalization
+
+### Changed
+
+Added `output_name_mapping` to `PolicySpec` (`agent/compile.py`): a dict
+from the name a trajectory happened to capture an output under
+(`"member_name"`) to the canonical contract name the policy author
+intends (`"full_name"`). This is a normalization of a label the author
+controls, not a fabrication — the compiler renames, it does not invent
+data or claim anything the run didn't prove.
+
+- The mapping is applied everywhere an output name surfaces: the
+  `Capability.outputs` list, the `extract_*` step ids, the terminal
+  `outputs_non_empty` checkpoint, and the compile-notes sidecar.
+- The discovery `done`-citation check is carried across the rename:
+  every output the run cited as its answer must still be a required
+  output of the compiled capability, compared on canonical names.
+- **Fail-clearly:** if the trajectory produced (captured or cited) an
+  output name with no entry in `output_name_mapping`, compilation
+  raises `CompileError` listing every missing name at once. An empty or
+  partial mapping does not pass outputs through unmapped.
+- `agent/policies/member_lookup.py` now declares
+  `{"member_name": "full_name", "savings_balance": "savings_balance"}`.
+
+### Verified
+
+- Re-ran the compiler against `disc-20260909-182538`; overwrote
+  `evidence/compiled/member_lookup.capability.json` and `.notes.md`.
+  The artifact now uses `full_name` consistently (0 occurrences of
+  `member_name`), matching `schema/example_artifact.json`'s output
+  naming. The notes sidecar records the `member_name -> full_name`
+  normalization.
+- `agent/tests/test_compile.py` extended: mapping applied through
+  outputs/ids/checkpoint, identity mapping still required, matches the
+  example artifact's names, and the fail-clearly cases (unmapped name,
+  empty mapping). Full suite: 21 passed.
+
+### Committed
+
+- `agent/compile.py`, `agent/compile_cli.py`
+- `agent/policies/__init__.py`, `agent/policies/member_lookup.py`
+- `agent/tests/test_compile.py`
+- `evidence/compiled/member_lookup.capability.json` + `.notes.md`
+- BUILD_LOG entries for Phase 4 (the compiler and this fix)
