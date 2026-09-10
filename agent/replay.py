@@ -543,7 +543,13 @@ class Replayer:
             except Exception:
                 pass
             self._last_doc_status = None
-            target.click(timeout=4000)
+            # A click that triggers navigation is held by Playwright until
+            # that navigation settles. When the step targets a page with a
+            # known injected delay (the target app's ~4s slow detail page)
+            # the compiler widens this step's settle bound for exactly that
+            # reason -- honour it here rather than failing ACT on a fixed 4s.
+            click_ms = max(4000, int(step.settle.max_wait_seconds * 1000))
+            target.click(timeout=click_ms)
             return f"clicked via {used}"
         if step.action == "extract":
             value = perception.read_paired_value(target)
