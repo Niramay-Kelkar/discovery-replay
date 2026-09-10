@@ -29,9 +29,14 @@ Result contract (Section 3.3), made structural via four distinct types:
 * :class:`HardFailure` -- something genuinely broke; carries the step,
   what was expected, and what was observed.
 * :class:`PendingEscalation` -- the escalation policy says *escalate*
-  (not *retry*) for what happened. Replay pauses cleanly and returns
-  this; the human-handoff mechanism is a later phase and hooks in here
-  without restructuring the loop.
+  (not *retry*) and the human-handoff mechanism is switched off
+  (``handoff_enabled=False``, e.g. in CI). Replay pauses cleanly and
+  returns this. With handoff *enabled* (the default) replay instead
+  records the blocked step in :class:`~agent.escalation.SessionStore`,
+  keeps the live browser open, and blocks polling for an operator's
+  resume up to ``escalation_policy.human_handoff_timeout_seconds`` --
+  then either re-enters SETTLE/CHECK for the paused step (never ACT) or
+  hard-fails on timeout.
 
 Guardrails (``guardrails``) are enforced here at run time, not just
 documented: route and action-type allowlists are checked before every
@@ -54,6 +59,7 @@ from playwright.sync_api import Locator, Page, sync_playwright
 from playwright.sync_api import TimeoutError as PWTimeout
 
 from agent.checkpoints import CheckEnv, evaluate_checkpoint
+from agent.escalation import DEFAULT_DB_PATH, SessionStore
 from agent.models import Capability, LocatorStrategy, Step
 from agent.outcome_detection import DetectionContext, detect_outcome
 from agent.perception import Perception, ResolutionError
@@ -278,6 +284,11 @@ class Replayer:
         base_url: Optional[str] = None,
         headed: bool = False,
         evidence_root: str = "evidence/replays",
+        handoff_enabled: bool = True,
+        session_db_path: str = DEFAULT_DB_PATH,
+        handoff_timeout_override: Optional[float] = None,
+        poll_interval_s: float = 2.0,
+        cdp_port: Optional[int] = None,
     ):
         self.cap = capability
         self.base_url = (base_url or capability.target.base_url).rstrip("/")
@@ -286,10 +297,27 @@ class Replayer:
         self.run_dir = Path(evidence_root) / self.run_id
         self.ev = _Evidence(self.run_dir / "replay.jsonl")
 
+        self.handoff_enabled = handoff_enabled
+        self.session_db_path = session_db_path
+        self.handoff_timeout_override = handoff_timeout_override
+        self.poll_interval_s = poll_interval_s
+        self.cdp_port = cdp_port
+        self._store: Optional[SessionStore] = None
+
         self._last_doc_status: Optional[int] = None
         self._steps_executed = 0
         self._t0 = time.time()
         self.extracted: dict[str, str] = {}
+
+    def _session_store(self) -> SessionStore:
+        if self._store is None:
+            self._store = SessionStore(self.session_db_path)
+        return self._store
+
+    def _handoff_timeout(self) -> float:
+        if self.handoff_timeout_override is not None:
+            return self.handoff_timeout_override
+        return self.cap.escalation_policy.human_handoff_timeout_seconds
 
     # -- public -------------------------------------------------------
 
@@ -308,7 +336,12 @@ class Replayer:
         )
 
         with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=not self.headed)
+            launch_kwargs: dict[str, Any] = {"headless": not self.headed}
+            if self.cdp_port:
+                # expose CDP so an operator can attach to and drive this exact
+                # browser during a handoff (the same live session, not a new one)
+                launch_kwargs["args"] = [f"--remote-debugging-port={self.cdp_port}"]
+            browser = pw.chromium.launch(**launch_kwargs)
             page = browser.new_page(viewport={"width": 1280, "height": 900})
             page.on("response", self._note_response)
             perception = Perception(page)
@@ -369,7 +402,6 @@ class Replayer:
     # -- main loop -------------------------------------------------
 
     def _drive(self, page, perception, resolver, inputs) -> ReplayResult:
-        pol = self.cap.escalation_policy
         gr = self.cap.guardrails
 
         for step in sorted(self.cap.steps, key=lambda s: s.ordinal):
@@ -398,10 +430,29 @@ class Replayer:
                     "step", ordinal=step.ordinal, id=step.id, action=step.action,
                     phase="act", ok=False, expected=f.expected, observed=f.observed,
                 )
-                return self._on_trigger(
-                    step, "act", pol.on_hard_failure, "on_hard_failure",
-                    f.expected, f.observed,
+                disp, res = self._dispatch_trigger(
+                    step, page, perception, resolver, inputs,
+                    "act", "on_hard_failure", f.expected, f.observed,
                 )
+                if disp == "result":
+                    return res
+                # resume: the operator completed the action on the live
+                # session. Replay does NOT re-run ACT -- it re-enters
+                # SETTLE/CHECK for this step and carries on.
+                self._steps_executed += 1
+                self.ev.write(
+                    "step", ordinal=step.ordinal, id=step.id, action=step.action,
+                    phase="act", ok=True,
+                    detail="ACT not re-invoked by replay; completed by the human "
+                           "operator during handoff",
+                )
+                disp, res = self._verify_step(
+                    step, page, perception, resolver, inputs, t_step
+                )
+                if disp == "result":
+                    return res
+                continue
+
             self._steps_executed += 1
             self.ev.write(
                 "step", ordinal=step.ordinal, id=step.id, action=step.action,
@@ -428,72 +479,13 @@ class Replayer:
                     observed=observed,
                 )
 
-            # --- SETTLE + CHECK, with retries that never touch ACT ---
-            report = self._settle_and_check(step, page, resolver)
-            attempts = 1
-            while (
-                not report.ok
-                and report.matched_outcome is None
-                and self._trigger_for(report) == "on_step_timeout"
-                and pol.on_step_timeout == "retry"
-                and attempts <= pol.max_retries_per_step
-            ):
-                time.sleep(pol.retry_backoff_seconds)
-                report = self._settle_and_check(step, page, resolver)
-                attempts += 1
-
-            self.ev.write(
-                "step", ordinal=step.ordinal, id=step.id, action=step.action,
-                phase="check", ok=report.ok, attempts=attempts,
-                settle_timed_out=report.settle_timed_out,
-                matched_outcome=(report.matched_outcome.code
-                                 if report.matched_outcome else None),
-                detail=report.detail,
-                duration_ms=int((time.time() - t_step) * 1000),
+            # --- SETTLE -> CHECK -> (retry / escalate / resume) ---
+            disp, res = self._verify_step(
+                step, page, perception, resolver, inputs, t_step
             )
-
-            # --- interpret the CHECK ---
-            outcome = report.matched_outcome
-            if outcome is not None:
-                self.ev.write("outcome_detected", code=outcome.code,
-                              classification=outcome.classification,
-                              at_step=step.id)
-                if outcome.classification == "business_outcome":
-                    if outcome.terminal:
-                        return BusinessOutcome(
-                            **self._base_fields(),
-                            outcome_code=outcome.code,
-                            description=outcome.description,
-                            classification=outcome.classification,
-                            detected_at_step=step.id,
-                            outputs={**self.extracted, "outcome_code": outcome.code},
-                        )
-                    # non-terminal business outcome: note it, keep going
-                    continue
-                # a declared hard_failure outcome: name the known breakage
-                return HardFailure(
-                    **self._base_fields(), at_step_id=step.id,
-                    at_step_ordinal=step.ordinal, phase="check",
-                    trigger="known_hard_failure_outcome",
-                    expected="happy-path checkpoint",
-                    observed=f"declared outcome {outcome.code}: {outcome.description}",
-                )
-
-            if report.ok:
-                continue
-
-            # checkpoint false, no outcome -> pick the trigger and dispatch
-            trig_name = self._trigger_for(report)
-            action = getattr(pol, trig_name)
-            expected = f"checkpoint {step.checkpoint.kind} on step {step.ordinal}"
-            observed = report.detail
-            if action == "retry":
-                # timeouts already retried above; anything else that maps to
-                # 'retry' has exhausted its budget by here -> escalate
-                return self._on_trigger(step, "check", "escalate", trig_name,
-                                        expected, observed)
-            return self._on_trigger(step, "check", action, trig_name,
-                                    expected, observed)
+            if disp == "result":
+                return res
+            # disp == "proceed" -> next step
 
         # --- all steps passed ---
         required = [o.name for o in self.cap.outputs if o.required]
@@ -748,20 +740,194 @@ class Replayer:
             evidence_path=str(self.ev.path),
         )
 
-    def _on_trigger(self, step: Step, phase: str, action: str, trigger: str,
-                    expected: str, observed: str) -> ReplayResult:
-        if action == "escalate":
-            return PendingEscalation(
-                **self._base_fields(), at_step_id=step.id, at_step_ordinal=step.ordinal,
-                phase=phase, trigger=trigger, configured_action=action,
+    # -- SETTLE/CHECK + escalation for one step -----------------
+
+    def _verify_step(
+        self, step: Step, page: Page, perception: Perception,
+        resolver: _Resolver, inputs, t_step: float,
+    ) -> tuple[str, Optional[ReplayResult]]:
+        """SETTLE -> CHECK (with timeout retries) -> interpret, escalating
+        and resuming as the policy directs.
+
+        Returns ``("proceed", None)`` (go to the next step) or
+        ``("result", <ReplayResult>)`` (return it). Every retry and every
+        post-handoff resume re-runs SETTLE/CHECK only -- ACT is never
+        re-invoked from here.
+        """
+        pol = self.cap.escalation_policy
+
+        report = self._settle_and_check(step, page, resolver)
+        attempts = 1
+        while (
+            not report.ok
+            and report.matched_outcome is None
+            and self._trigger_for(report) == "on_step_timeout"
+            and pol.on_step_timeout == "retry"
+            and attempts <= pol.max_retries_per_step
+        ):
+            time.sleep(pol.retry_backoff_seconds)
+            report = self._settle_and_check(step, page, resolver)
+            attempts += 1
+
+        self.ev.write(
+            "step", ordinal=step.ordinal, id=step.id, action=step.action,
+            phase="check", ok=report.ok, attempts=attempts,
+            settle_timed_out=report.settle_timed_out,
+            matched_outcome=(report.matched_outcome.code
+                             if report.matched_outcome else None),
+            detail=report.detail,
+            duration_ms=int((time.time() - t_step) * 1000),
+        )
+
+        resumes = 0
+        while True:
+            outcome = report.matched_outcome
+            if outcome is not None:
+                self.ev.write("outcome_detected", code=outcome.code,
+                              classification=outcome.classification, at_step=step.id)
+                if outcome.classification == "business_outcome":
+                    if outcome.terminal:
+                        return "result", BusinessOutcome(
+                            **self._base_fields(), outcome_code=outcome.code,
+                            description=outcome.description,
+                            classification=outcome.classification,
+                            detected_at_step=step.id,
+                            outputs={**self.extracted, "outcome_code": outcome.code},
+                        )
+                    return "proceed", None  # non-terminal: note and continue
+                return "result", HardFailure(
+                    **self._base_fields(), at_step_id=step.id,
+                    at_step_ordinal=step.ordinal, phase="check",
+                    trigger="known_hard_failure_outcome",
+                    expected="happy-path checkpoint",
+                    observed=f"declared outcome {outcome.code}: {outcome.description}",
+                )
+
+            if report.ok:
+                return "proceed", None
+
+            trig_name = self._trigger_for(report)
+            disp, res = self._dispatch_trigger(
+                step, page, perception, resolver, inputs, "check", trig_name,
+                f"checkpoint {step.checkpoint.kind} on step {step.ordinal}",
+                report.detail,
+            )
+            if disp == "result":
+                return "result", res
+
+            # disp == "resume": operator acted on the live session
+            resumes += 1
+            self.ev.write("resume", step_id=step.id, resume_count=resumes,
+                          note="re-running SETTLE/CHECK after human handoff; "
+                               "ACT is not re-invoked")
+            report = self._settle_and_check(step, page, resolver)
+            if resumes >= 5 and not report.ok and report.matched_outcome is None:
+                return "result", HardFailure(
+                    **self._base_fields(), at_step_id=step.id,
+                    at_step_ordinal=step.ordinal, phase="check",
+                    trigger="checkpoint_failure_after_resume",
+                    expected=f"checkpoint {step.checkpoint.kind} to pass after "
+                             "operator handoff",
+                    observed=f"operator resumed {resumes}x, checkpoint still "
+                             f"failing: {report.detail}",
+                )
+
+    def _dispatch_trigger(
+        self, step: Step, page: Page, perception: Perception, resolver: _Resolver,
+        inputs, phase: str, trigger_name: str, expected: str, observed: str,
+    ) -> tuple[str, Optional[ReplayResult]]:
+        """Apply the ``EscalationAction`` the policy maps *trigger_name* to.
+
+        ``retry`` -> SETTLE/CHECK retries are the caller's job and are
+        already exhausted by here, so it escalates. ``escalate`` -> open a
+        SessionStore entry and block for a human (or, with handoff
+        disabled, return :class:`PendingEscalation`). ``fail`` / ``abort``
+        -> stop now with a :class:`HardFailure`, no handoff.
+        """
+        action = getattr(self.cap.escalation_policy, trigger_name)
+        if action == "retry":
+            action = "escalate"
+
+        if action in ("fail", "abort"):
+            return "result", HardFailure(
+                **self._base_fields(), at_step_id=step.id,
+                at_step_ordinal=step.ordinal, phase=phase,
+                trigger=f"{trigger_name}:{action}",
                 expected=expected, observed=observed,
             )
-        # 'fail' and 'abort' both stop now with a hard failure; 'abort' is
-        # "unsafe to continue", 'fail' is "give up cleanly" -- neither hands off.
-        return HardFailure(
+
+        if not self.handoff_enabled:
+            return "result", PendingEscalation(
+                **self._base_fields(), at_step_id=step.id,
+                at_step_ordinal=step.ordinal, phase=phase, trigger=trigger_name,
+                configured_action=action, expected=expected, observed=observed,
+            )
+
+        return self._escalate(
+            step, page, perception, phase, trigger_name, expected, observed
+        )
+
+    def _escalate(
+        self, step: Step, page: Page, perception: Perception, phase: str,
+        trigger_name: str, expected: str, observed: str,
+    ) -> tuple[str, Optional[ReplayResult]]:
+        """Record the blocked step, keep the browser open, and poll the
+        SessionStore for an operator's resume up to the handoff timeout."""
+        store = self._session_store()
+        timeout = self._handoff_timeout()
+
+        shot = self.run_dir / "screenshots" / f"escalation_step{step.ordinal:02d}_{step.id}.png"
+        shot.parent.mkdir(parents=True, exist_ok=True)
+        perception.screenshot(str(shot))
+
+        started = time.time()
+        deadline = started + timeout
+        deadline_iso = datetime.fromtimestamp(deadline, timezone.utc).isoformat()
+        esc_id = store.open_escalation(
+            run_id=self.run_id, capability_id=self.cap.capability_id,
+            goal=(self.cap.discovery.goal if self.cap.discovery else None),
+            step_id=step.id, step_ordinal=step.ordinal, trigger=trigger_name,
+            phase=phase, expected=expected, observed=observed,
+            screenshot_path=str(shot), handoff_deadline_at=deadline_iso,
+        )
+        self.ev.write(
+            "escalation_opened", escalation_id=esc_id, step_id=step.id,
+            step_ordinal=step.ordinal, phase=phase, trigger=trigger_name,
+            expected=expected, observed=observed, screenshot=str(shot),
+            handoff_timeout_s=timeout, current_url=page.url,
+            note="replay is blocked and polling; the live browser stays open "
+                 "for an operator to drive directly",
+        )
+
+        while time.time() < deadline:
+            rec = store.get(esc_id)
+            if rec and rec["status"] == "resumed":
+                waited = round(time.time() - started, 1)
+                self.ev.write(
+                    "human_intervention", escalation_id=esc_id, step_id=step.id,
+                    human_intervened=True, resumed_by=rec.get("resumed_by"),
+                    operator_note=rec.get("operator_note"),
+                    opened_at=rec.get("created_at"), resumed_at=rec.get("resumed_at"),
+                    paused_seconds=waited,
+                    note="operator took control of the live session and resumed; "
+                         "replay re-enters SETTLE/CHECK for this step only",
+                )
+                return "resume", None
+            time.sleep(self.poll_interval_s)
+
+        store.mark_timed_out(esc_id)
+        waited = round(time.time() - started, 1)
+        self.ev.write(
+            "escalation_timed_out", escalation_id=esc_id, step_id=step.id,
+            paused_seconds=waited, handoff_timeout_s=timeout,
+        )
+        return "result", HardFailure(
             **self._base_fields(), at_step_id=step.id, at_step_ordinal=step.ordinal,
-            phase=phase, trigger=f"{trigger}:{action}",
-            expected=expected, observed=observed,
+            phase=phase, trigger=f"{trigger_name}:handoff_timeout",
+            expected=expected,
+            observed=(f"escalated to a human operator and waited {waited}s "
+                      f"(limit {timeout}s) with no resume; run hard-failed "
+                      f"cleanly. Last observed: {observed}"),
         )
 
     def _finish(self, result: ReplayResult) -> ReplayResult:
@@ -800,8 +966,11 @@ def replay(
     base_url: Optional[str] = None,
     headed: bool = False,
     evidence_root: str = "evidence/replays",
+    handoff_enabled: bool = True,
+    **kwargs: Any,
 ) -> ReplayResult:
     """Convenience wrapper: one capability + inputs -> one result."""
     return Replayer(
-        capability, base_url=base_url, headed=headed, evidence_root=evidence_root
+        capability, base_url=base_url, headed=headed, evidence_root=evidence_root,
+        handoff_enabled=handoff_enabled, **kwargs,
     ).run(inputs)

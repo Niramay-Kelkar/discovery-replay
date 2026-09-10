@@ -52,6 +52,19 @@ def main(argv=None) -> int:
     p.add_argument("--headed", action="store_true")
     p.add_argument("--evidence-root", default=str(REPO_ROOT / "evidence" / "replays"))
     p.add_argument("--json", action="store_true", help="print the full result as JSON")
+    p.add_argument("--no-handoff", action="store_true",
+                   help="on an 'escalate' trigger, return PendingEscalation "
+                        "immediately instead of blocking for an operator")
+    p.add_argument("--session-db", default=str(REPO_ROOT / "evidence" / "sessions"
+                                               / "escalations.db"),
+                   help="SQLite escalation store shared with the operator console")
+    p.add_argument("--handoff-timeout", type=float, default=None,
+                   help="override escalation_policy.human_handoff_timeout_seconds")
+    p.add_argument("--poll-interval", type=float, default=2.0,
+                   help="how often to check the store for a resume, seconds")
+    p.add_argument("--cdp-port", type=int, default=None,
+                   help="expose Chrome DevTools on this port so an operator can "
+                        "attach to and drive this exact browser during a handoff")
     args = p.parse_args(argv)
 
     if not args.capability.exists():
@@ -63,6 +76,11 @@ def main(argv=None) -> int:
     replayer = Replayer(
         capability, base_url=args.base_url, headed=args.headed,
         evidence_root=args.evidence_root,
+        handoff_enabled=not args.no_handoff,
+        session_db_path=args.session_db,
+        handoff_timeout_override=args.handoff_timeout,
+        poll_interval_s=args.poll_interval,
+        cdp_port=args.cdp_port,
     )
     print(f"run_id: {replayer.run_id}")
     result = replayer.run(inputs)
