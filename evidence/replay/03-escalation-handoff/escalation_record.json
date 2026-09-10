@@ -1,0 +1,19 @@
+{
+  "id": 1,
+  "run_id": "replay-20260910-091901",
+  "capability_id": "member_lookup",
+  "goal": "In the member search screen, switch the search field to last name by clicking the 'Last name' radio button (do not use the default 'Member ID' option), then search for the member with last name Okafor, open their record, and read their full name and current savings balance.",
+  "step_id": "click_open_detail_for",
+  "step_ordinal": 5,
+  "trigger": "on_unrecognized_dialog",
+  "phase": "check",
+  "expected": "checkpoint any_of on step 5",
+  "observed": "element_visible(rowheader Full name)=False; outcome_matched=none; unrecognized alertdialog on page",
+  "screenshot_path": "evidence/replay/03-escalation-handoff/screenshots/escalation_step05_click_open_detail_for.png",
+  "status": "resumed",
+  "created_at": "2026-09-10T16:19:12.878350+00:00",
+  "resumed_at": "2026-09-10T16:20:35.006528+00:00",
+  "resumed_by": "niramay",
+  "operator_note": "attached over CDP, acknowledged the maintenance hold, record now renders",
+  "handoff_deadline_at": "2026-09-10T16:23:12.877170+00:00"
+}

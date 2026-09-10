@@ -1,0 +1,216 @@
+{
+  "run_id": "disc-20260910-084016",
+  "goal": "In the member search screen, switch the search field to last name by clicking the 'Last name' radio button (do not use the default 'Member ID' option), then search for the member with last name Okafor, open their record, and read their full name and current savings balance.",
+  "target_base_url": "http://127.0.0.1:5001",
+  "entry_path": "/",
+  "model": "claude-sonnet-4-6",
+  "started_at": "2026-09-10T15:40:16.714592+00:00",
+  "finished_at": "2026-09-10T15:40:38.165258+00:00",
+  "outcome": "completed",
+  "outcome_detail": "Searched for member with last name Okafor using the Last Name radio button, opened James Okafor's record (M1004), and extracted their full name and savings balance.",
+  "steps": [
+    {
+      "index": 1,
+      "tool": "click",
+      "params": {
+        "role": "radio",
+        "name": "Last name",
+        "why": "Switch the search field to Last name as required by the goal"
+      },
+      "rationale": "Switch the search field to Last name as required by the goal",
+      "status": "ok",
+      "resolved": {
+        "strategy": "aria_role",
+        "role": "radio",
+        "name": "Last name",
+        "exact": true,
+        "match_count": 1,
+        "dom_tag": "input"
+      },
+      "page_url": "http://127.0.0.1:5001/",
+      "screenshot_path": "evidence/discovery/disc-20260910-084016/screenshots/step_01.png",
+      "snapshot_sha1": "0ee8b42dc3a5120ba022fcf222e3625ec8f2f090",
+      "started_at": "2026-09-10T15:40:20.834738+00:00",
+      "duration_ms": 250
+    },
+    {
+      "index": 2,
+      "tool": "type",
+      "params": {
+        "role": "textbox",
+        "name": "Search term (member ID or last name)",
+        "text": "Okafor",
+        "why": "Enter the last name to search for the member"
+      },
+      "rationale": "Enter the last name to search for the member",
+      "status": "ok",
+      "resolved": {
+        "strategy": "aria_role",
+        "role": "textbox",
+        "name": "Search term (member ID or last name)",
+        "exact": true,
+        "match_count": 1,
+        "dom_tag": "input"
+      },
+      "page_url": "http://127.0.0.1:5001/",
+      "screenshot_path": "evidence/discovery/disc-20260910-084016/screenshots/step_02.png",
+      "snapshot_sha1": "14c3ba8679b986b52d065bff30437a94e721246b",
+      "started_at": "2026-09-10T15:40:23.492982+00:00",
+      "duration_ms": 201
+    },
+    {
+      "index": 3,
+      "tool": "click",
+      "params": {
+        "role": "button",
+        "name": "Look Up",
+        "why": "Submit the search to find the member with last name Okafor"
+      },
+      "rationale": "Submit the search to find the member with last name Okafor",
+      "status": "ok",
+      "resolved": {
+        "strategy": "aria_role",
+        "role": "button",
+        "name": "Look Up",
+        "exact": true,
+        "match_count": 1,
+        "resolved_text": "Look Up",
+        "dom_tag": "button"
+      },
+      "page_url": "http://127.0.0.1:5001/search?field=last_name&q=Okafor",
+      "screenshot_path": "evidence/discovery/disc-20260910-084016/screenshots/step_03.png",
+      "snapshot_sha1": "79280efb2432082be87ad8074def70c672e844f7",
+      "started_at": "2026-09-10T15:40:25.386253+00:00",
+      "duration_ms": 699
+    },
+    {
+      "index": 4,
+      "tool": "click",
+      "params": {
+        "role": "link",
+        "name": "Open detail for James Okafor, member M1004",
+        "why": "Open the member record for James Okafor"
+      },
+      "rationale": "Open the member record for James Okafor",
+      "status": "ok",
+      "resolved": {
+        "strategy": "aria_role",
+        "role": "link",
+        "name": "Open detail for James Okafor, member M1004",
+        "exact": true,
+        "match_count": 1,
+        "resolved_text": "View",
+        "dom_tag": "a"
+      },
+      "page_url": "http://127.0.0.1:5001/member/M1004",
+      "screenshot_path": "evidence/discovery/disc-20260910-084016/screenshots/step_04.png",
+      "snapshot_sha1": "da17d7bb89db18b75511ac842526f9fdca808d05",
+      "started_at": "2026-09-10T15:40:27.982311+00:00",
+      "duration_ms": 731
+    },
+    {
+      "index": 5,
+      "tool": "extract",
+      "params": {
+        "role": "cell",
+        "name": "James Okafor",
+        "output_name": "full_name",
+        "why": "Read the full name of the member from their record"
+      },
+      "rationale": "Read the full name of the member from their record",
+      "status": "ok",
+      "resolved": {
+        "strategy": "aria_role",
+        "role": "cell",
+        "name": "James Okafor",
+        "exact": true,
+        "match_count": 1,
+        "resolved_text": "James Okafor",
+        "dom_tag": "td"
+      },
+      "extraction": {
+        "output_name": "full_name",
+        "value": "James Okafor",
+        "label": "Full name",
+        "label_source": "rowheader_in_row"
+      },
+      "page_url": "http://127.0.0.1:5001/member/M1004",
+      "screenshot_path": "evidence/discovery/disc-20260910-084016/screenshots/step_05.png",
+      "snapshot_sha1": "4eb278209f7e6c0bf23273aea1de5c8697c93bf0",
+      "started_at": "2026-09-10T15:40:31.712253+00:00",
+      "duration_ms": 147
+    },
+    {
+      "index": 6,
+      "tool": "extract",
+      "params": {
+        "role": "cell",
+        "name": "$2,219.75",
+        "output_name": "savings_balance",
+        "why": "Read the current savings balance of the member from their record"
+      },
+      "rationale": "Read the current savings balance of the member from their record",
+      "status": "ok",
+      "resolved": {
+        "strategy": "aria_role",
+        "role": "cell",
+        "name": "$2,219.75",
+        "exact": true,
+        "match_count": 1,
+        "resolved_text": "$2,219.75",
+        "dom_tag": "td"
+      },
+      "extraction": {
+        "output_name": "savings_balance",
+        "value": "$2,219.75",
+        "label": "Savings balance",
+        "label_source": "rowheader_in_row"
+      },
+      "page_url": "http://127.0.0.1:5001/member/M1004",
+      "screenshot_path": "evidence/discovery/disc-20260910-084016/screenshots/step_06.png",
+      "snapshot_sha1": "4eb278209f7e6c0bf23273aea1de5c8697c93bf0",
+      "started_at": "2026-09-10T15:40:34.455609+00:00",
+      "duration_ms": 91
+    },
+    {
+      "index": 7,
+      "tool": "done",
+      "params": {
+        "output_names": [
+          "full_name",
+          "savings_balance"
+        ],
+        "summary": "Searched for member with last name Okafor using the Last Name radio button, opened James Okafor's record (M1004), and extracted their full name and savings balance.",
+        "why": "All required values have been extracted from the live page."
+      },
+      "rationale": "All required values have been extracted from the live page.",
+      "status": "ok",
+      "page_url": "http://127.0.0.1:5001/member/M1004",
+      "screenshot_path": "evidence/discovery/disc-20260910-084016/screenshots/step_07.png",
+      "snapshot_sha1": "4eb278209f7e6c0bf23273aea1de5c8697c93bf0",
+      "started_at": "2026-09-10T15:40:38.123329+00:00",
+      "duration_ms": 41
+    }
+  ],
+  "captured_outputs": {
+    "full_name": {
+      "output_name": "full_name",
+      "value": "James Okafor",
+      "label": "Full name",
+      "label_source": "rowheader_in_row"
+    },
+    "savings_balance": {
+      "output_name": "savings_balance",
+      "value": "$2,219.75",
+      "label": "Savings balance",
+      "label_source": "rowheader_in_row"
+    }
+  },
+  "cited_outputs": [
+    "full_name",
+    "savings_balance"
+  ],
+  "step_count": 7,
+  "resolution_error_count": 0,
+  "retry_count": 0
+}

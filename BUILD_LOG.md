@@ -1053,3 +1053,43 @@ pointer lives in the Demo path for now. `REPORT.md` untouched.
 ### Committed
 
 - `README.md`, this BUILD_LOG entry
+
+---
+
+## 2026-09-10 — Curated evidence/ for submission
+
+Assembled the deliberate evidence set the brief's Section 6.3 asks for,
+copied out of the git-ignored raw trees (`evidence/runs/`,
+`evidence/replays/`, `evidence/sessions/`) into two committed
+directories rather than un-ignoring the raw output.
+
+- `evidence/discovery/disc-20260910-084016/` — the last-name discovery
+  run (`trajectory.json`, `steps.jsonl`, 7 screenshots). Chosen over a
+  member-ID run because it forces the `Last name` radio click and its
+  `extract` steps exercise the value→label walk the compiler depends
+  on.
+- `evidence/replay/01-success/`, `02-business-outcome-access-denied/`,
+  `03-escalation-handoff/` — one replay run per outcome class. `03` is
+  the M1007 unrecognized-dialog run with a real operator handoff on the
+  same live session (`replay.jsonl`, the escalation screenshot, and
+  `escalation_record.json` exported from the escalation store).
+- `evidence/compiled/` unchanged (already tracked).
+- `evidence/README.md` — indexes the set, gives the reading order, and
+  maps each piece to Section 6.3.
+
+Sanitization pass before commit (documented in full in
+`evidence/README.md`): absolute `screenshot` paths in the discovery and
+escalation logs were made repo-relative and repointed at the curated
+screenshot locations; grep over the curated set for `/Users/`, `/home/`,
+`C:\`, the machine username, the hostname, `.local`, `sk-ant-`,
+`ANTHROPIC_API_KEY`, and 25+ char token-like strings all came back
+empty. Replay-log redaction (masked, length-bearing extracted values)
+verified to hold on all three replay runs. Screenshots confirmed to be
+page-only Playwright captures with no OS/browser chrome. The discovery
+trajectory keeps its captured sample values, matching the already-
+committed `compiled/…notes.md`; nothing in the set derives from `.env`.
+
+### Committed
+
+- `evidence/discovery/`, `evidence/replay/`, `evidence/README.md`, this
+  BUILD_LOG entry
