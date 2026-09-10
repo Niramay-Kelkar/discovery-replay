@@ -1293,3 +1293,60 @@ share its provenance.
 ## 2026-09-10 — REPORT.md §2 precision corrections
 
 Two wording fixes in the Artifact schema section caught on a self-review pass against the code (not new findings): `policy_authored_by` phrased so it no longer implies `compile.py` emits an artifact with it unset, and the empty-allowlist hard-fail described as "before any navigation or interaction" rather than "before touching the browser" (the browser is already launched inside `_drive` at that point). Committed: `REPORT.md`, this entry.
+
+---
+
+## 2026-09-10 — REPORT.md §3 written (Determinism & error handling)
+
+Filled in the previously empty §3. Content built from a read of the
+actual code, not from memory: `agent/replay.py` (the ACT/SETTLE/CHECK
+loop, `_verify_step`'s retry loop, `_dispatch_trigger`, `_escalate`),
+`agent/checkpoints.py`, `agent/outcome_detection.py`,
+`agent/escalation.py`, and the real configured values in
+`evidence/compiled/member_lookup.capability.json`.
+
+Covers: why replay's decision path is deterministic (no model, no RNG)
+and the honest short list of what still varies run to run (timing, whether
+a retry fires, the network-idle vs. DOM-stable settle branch), plus the
+one latent non-determinism — the `nth=0` prefix match on the detail-page
+link, safe only as long as the target app's result ordering stays
+stable. A Mermaid flowchart of one step's ACT → SETTLE/CHECK →
+retry/escalate/result paths. The retry rules (only `on_step_timeout`
+retries; three evaluations, flat 1.5s backoff; ACT is never re-invoked).
+The four-way result contract mapped to what the caller receives. The
+M1003 slow-load bug as the worked example of the expected-vs-observed
+design surfacing a real gap. UI drift stated plainly as not built, only
+contained. The layered timeout model with the real per-step settle
+bounds (2–12s) and the 900s handoff window.
+
+### Checked against code before committing
+
+- Retry loop (`_verify_step`, replay.py): first check, then `while
+  attempts <= max_retries_per_step` (2) with a `time.sleep(1.5)` each
+  pass → 3 evaluations, 2 backoffs. Matches the prose.
+- `_dispatch_trigger` converts a `"retry"` policy action to `"escalate"`
+  for every trigger except the `on_step_timeout` path handled in
+  `_verify_step`'s loop — so "everything else converts straight to
+  escalation" holds.
+- `_trigger_for`: settle-timeout → `on_step_timeout`; else unrecognized
+  dialog → `on_unrecognized_dialog`; else `on_checkpoint_failure`.
+- `human_handoff_timeout_seconds` is 900.0 in the capability JSON;
+  per-locator `wait_for("attached", timeout=4000)`; per-step settle
+  bounds in the JSON are 5/12/2/12/12/2/2.
+- Success outputs returned in-process and deliberately not written to
+  the JSONL (`_finish` comment).
+
+One imprecision left in deliberately, noted here so it's on record: the
+diagram's "declared outcome matched → BusinessOutcome" edge omits the
+`classification != "business_outcome"` case, which is a `HardFailure`
+(`known_hard_failure_outcome`). Every outcome declared in the current
+`member_lookup` artifact is `business_outcome`, so the edge is accurate
+for this capability; the diagram is illustrative of one step's control
+flow, not an exhaustive state enumeration. Same spirit for "fixed
+per-action timeouts" — the click action's timeout is `max(4000,
+settle_bound_ms)`, i.e. derived from the step's settle bound, not a
+literal constant like `fill`'s 4000ms.
+
+### Committed
+
+- `REPORT.md`, this entry
