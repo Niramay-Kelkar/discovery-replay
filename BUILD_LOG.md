@@ -720,3 +720,150 @@ in-process and to CLI stdout only; nothing writes it to disk.
 - `evidence/replays/replay-20260910-071359`,
   `evidence/replays/replay-20260910-071403`
 - this BUILD_LOG entry
+
+---
+
+## 2026-09-10 — Human-in-the-loop escalation and handoff (Section 3.6)
+
+Phase 6. Replay can now detect a state it cannot classify, hand control
+of the *same* live browser to a human operator, and resume the run when
+the operator gives the go-ahead — re-entering SETTLE/CHECK for the
+paused step only, never re-running its ACT.
+
+### Step 1 — a genuinely unrecognized seeded state (`target_app`)
+
+Every existing non-happy case (access-denied, not-found, the
+supervisor-review interstitial) is a *declared* `expected_outcome` the
+PolicySpec detects — none of them actually need to escalate. Added one
+that does:
+
+- `MAINTENANCE_HOLD_IDS = {"M1007"}` in `app.py` (same app-layer pattern
+  as `SLOW_LOAD_IDS` / `INTERSTITIAL_IDS`; the DB row is ordinary).
+  `/member/M1007` serves `maintenance_hold.html` — a `role="alertdialog"`
+  named **"Account maintenance hold"** with wording and an aria-label no
+  detection rule in the compiled capability matches. `?ack=yes` clears
+  it to the real record (Dana Whitfield, $7,605.14).
+- `seed.py` gains the M1007 row; `README.md` documents it in the seeded
+  table and the accessibility contract, with a note drawing the line
+  between recognized business outcomes and this unrecognized state.
+
+Result: `on_unrecognized_dialog` is now actually reachable — replay sees
+an `alertdialog`, outcome detection matches nothing, so it escalates.
+
+### Step 2 — `agent/escalation.py`: `SessionStore`
+
+SQLite (stdlib `sqlite3`, WAL, short-lived connections — two processes
+touch it: replay and the console). One `escalations` table: `run_id`,
+`capability_id`, `goal`, `step_id` / `step_ordinal`, `trigger` (the four
+policy triggers, validated on insert), `phase`, `expected` / `observed`,
+`screenshot_path`, `status` (`pending` → `resumed` | `timed_out`),
+timestamps, `resumed_by`, `operator_note`, `handoff_deadline_at`.
+`mark_resumed` is one-shot (only acts while `pending`); `mark_timed_out`
+never clobbers a resume. DB lives under `evidence/sessions/` (git-ignored
+operational state).
+
+### Step 3 — wired into `agent/replay.py`
+
+- On an `escalate` trigger with handoff enabled (the default),
+  `_escalate` takes a screenshot into the run's evidence dir, opens a
+  `SessionStore` entry, writes an `escalation_opened` evidence record,
+  then **blocks** — polling the store every `poll_interval_s` up to
+  `escalation_policy.human_handoff_timeout_seconds`. The Playwright
+  browser stays open the whole time (the poll loop only touches SQLite),
+  so it is literally the same session a person can drive.
+- On `resumed`: writes a `human_intervention` evidence record (that a
+  human intervened, who, when, how long paused, their note), then
+  returns a `"resume"` signal. `_verify_step` re-runs `_settle_and_check`
+  for the paused step and re-interprets — **ACT is not called**. If the
+  checkpoint now passes (operator fixed the page), the run continues.
+- On timeout: `mark_timed_out`, `escalation_timed_out` evidence, and a
+  clean `HardFailure` (`<trigger>:handoff_timeout`) with how long it
+  waited — no crash, no infinite loop.
+- ACT-phase failures (`on_hard_failure`) escalate the same way; on
+  resume, replay records that the operator completed the action and goes
+  straight to SETTLE/CHECK (it cannot and does not re-fire ACT).
+- `--cdp-port` on the CLI launches Chromium with a DevTools port so an
+  operator can attach to *that* browser during a handoff.
+  `handoff_enabled=False` (CLI `--no-handoff`) keeps the Phase-5
+  behaviour of returning `PendingEscalation` immediately — used in CI.
+- New CLI flags: `--no-handoff`, `--session-db`, `--handoff-timeout`,
+  `--poll-interval`, `--cdp-port`.
+
+### Step 4 — `agent/operator_console.py`
+
+Minimal Flask app, port 5002, deliberately bare (Section 3.6 puts a full
+co-browsing console out of scope — the operator is at the machine). What
+is real:
+
+- `GET /` lists pending escalations with goal / step / trigger /
+  expected-vs-observed / screenshot, plus recent resolved history.
+- `GET /screenshot/<run_id>/<name>` is scoped two ways: there must be an
+  escalation for that `run_id` whose recorded screenshot is the file
+  asked for, **and** the resolved path must sit inside that run's own
+  `evidence/replays/<run_id>/` dir (no traversal, no cross-run reads).
+- `POST /resume/<id>` records `resumed_by` + an optional note and flips
+  the row to `resumed`, which unblocks the polling replay process. The
+  human's action is recorded in the run's JSONL evidence, not just "a
+  resume happened".
+
+### Step 5 — live demonstration
+
+Reseeded, started `target_app` (5001) and the operator console (5002),
+then ran replay **headed** with `--cdp-port 9222 --handoff-timeout 240`:
+
+    replay_cli --capability evidence/compiled/member_lookup.capability.json \
+               --input search_term=M1007 --headed --cdp-port 9222
+
+- Steps 1–3 ran normally. Step 4 (`click_open_detail_for`) landed on the
+  "Account maintenance hold" `alertdialog`; SETTLE/CHECK: checkpoint
+  false, outcome detection matched nothing, `alertdialog` present →
+  trigger `on_unrecognized_dialog` → **escalate**. Replay wrote
+  `escalation_opened` (escalation #1), screenshotted the page, and
+  blocked polling.
+- Console showed the pending escalation with the screenshot of the hold
+  dialog and the expected/observed context.
+- Acting as the operator: attached to the **same** Chromium over CDP
+  (`connect_over_cdp("http://localhost:9222")`), found the exact tab
+  replay was blocked on (`/member/M1007`), read the dialog, clicked
+  **Dismiss** → the real record rendered. Then clicked **Resume** in the
+  console (`operator=niramay`, with a note).
+- Replay's next poll saw `resumed`, wrote `human_intervention`
+  (`human_intervened: true`, operator + note + `paused_seconds`), and
+  `resume` (`"ACT is not re-invoked"`). It re-ran SETTLE/CHECK for step 4
+  only — the record table was now visible, checkpoint passed — then
+  steps 5–6 extracted `full_name` / `savings_balance`. Final result:
+  **Success**, `Dana Whitfield` / `$7,605.14`, `outcome_code=SUCCESS`,
+  6 steps.
+- Evidence: `evidence/replays/replay-20260910-080644/` (JSONL + the
+  escalation screenshot). Extracted and input values are redacted in the
+  log; a grep for the member's name / ID / balance across `evidence/`
+  comes back empty. Not committed (git-ignored raw run evidence, per the
+  existing convention).
+
+Note on "visible": in this build environment a headed Chromium has no
+real display, but the handoff is genuine — the operator attached to and
+drove the *identical* browser process and tab replay was paused on, and
+replay resumed on that mutated DOM without re-running ACT. On an operator
+workstation the same `--headed` window is one a person clicks in
+directly.
+
+### Tests
+
+- `agent/tests/test_escalation.py` (offline): `SessionStore` open/read,
+  invalid-trigger rejection, one-shot resume, timeout-doesn't-clobber;
+  operator console index, `POST /resume` flips the row, and the
+  screenshot route is scoped to `run_id` (a different run_id → 404 for
+  the same filename; traversal → 404).
+- Full suite: 39 passed.
+
+### Committed
+
+- `target_app/app.py`, `target_app/seed.py`,
+  `target_app/templates/maintenance_hold.html`, `target_app/README.md`
+- `agent/escalation.py`, `agent/operator_console.py`,
+  `agent/tests/test_escalation.py`, `requirements.txt` (flask)
+- `agent/replay.py`, `agent/replay_cli.py`
+- this BUILD_LOG entry
+
+(Raw evidence for the live run stays under `evidence/replays/` and is
+git-ignored — not committed.)
