@@ -337,3 +337,106 @@ not-found (both wordings), and the interstitial (now with a direct
 
 Replaced the on-screen "Cornerstone Savings" text (page titles, header, decorative sidebar) in `target_app/templates/base.html` with "Acme Savings", matching the `target.app` rename; no route names, IDs, class names, or accessibility role/name contract touched, and the README accessible-name contract is unaffected (only its line-1 heading updated for consistency).
 - this BUILD_LOG entry
+
+---
+
+## 2026-09-09 — Discovery agent: the LLM observe/decide/act loop
+
+### Tool vocabulary (decided first, in CLAUDE.md)
+
+Added a "Discovery tool vocabulary" section to CLAUDE.md before writing
+the loop: exactly five tools — `navigate`, `click`, `type`, `extract`,
+`done` — with a one-line justification for each and an explicit
+"considered and rejected" list (`scroll`, `hover`, `wait`/`sleep`,
+`screenshot` as a tool, `go_back`, `assert`). The agent must call
+exactly one tool per turn (`tool_choice {"type":"any"}`, parallel
+disabled); no free-form text is parsed for intent. Every tool also
+takes a required one-line `why`, so the step log records the model's
+reason even though forced tool use suppresses preamble text.
+
+### Built
+
+- **`agent/perception.py`** — `Perception` wraps a Playwright page. The
+  model sees only `locator("body").aria_snapshot()` (role + accessible
+  name tree) — the same representation replay's locators are built
+  from. `resolve(role, name)` is **exact** (`exact=True`) always;
+  0 matches and >1 matches both raise `ResolutionError` with a
+  model-readable hint. `extract()` resolves, then reads the value from
+  the live DOM (never the model's claim) and walks from the value
+  element to its label (`aria-labelledby` → row `rowheader` →
+  `label[for]` → wrapping `<label>`). `KNOWN_ROLES` is the set the
+  target's a11y contract actually exposes (verified live).
+- **`agent/discovery_tools.py`** — the Anthropic tool schemas and
+  `ToolExecutor`. Runs each call, records a `TrajectoryStep`, returns a
+  `tool_result` string (new snapshot appended). Resolution/tool errors
+  come back as `is_error` results the model can retry from.
+  `done` calls `_validate_done`: every cited `output_name` must already
+  be in `captured_outputs` from a successful `extract`, else it fails
+  with "extract it first" — `done` can never accept a self-reported
+  value. `navigate` refuses off-origin URLs.
+- **`agent/trajectory.py`** — `Trajectory` / `TrajectoryStep` /
+  `ResolvedLocator` / `ExtractionResult`, deliberately separate from
+  `agent/models.py`. This is discovery's raw output; the (not-yet-built)
+  compiler turns a Trajectory into a Capability. A `TrajectoryStep`
+  carries the resolved locator (role, name, exact, match count, DOM
+  tag), the action, and for extracts both the value and the label +
+  `label_source`, so compiled locators/checkpoints can later key off
+  the field label, not its literal value.
+- **`agent/discovery.py`** — the loop. Launches headless Chromium,
+  seeds the conversation with goal + first snapshot, then per turn:
+  Messages API call → one `tool_use` → execute → append `tool_result`
+  with the fresh snapshot. Stops on `done` (clean), max steps, or
+  wall-clock timeout. Writes `trajectory.json`, `steps.jsonl`, and
+  `screenshots/step_NN.png` under `evidence/runs/<run_id>/`.
+- **`agent/discover.py`** — CLI. Loads `.env`, takes `--goal`,
+  `--base-url`, `--entry`, `--model` (default `claude-sonnet-4-6`,
+  confirmed available via the models endpoint), `--max-steps`,
+  `--timeout`, `--headed`.
+- **`agent/tests/test_correctness_guards.py`** — offline (no
+  browser/API): `done` rejects an uncaptured name, accepts only
+  captured ones, and `resolve` pins `exact=True` / fails on >1 match.
+  3 passed.
+
+### Live run
+
+Real run against the live target app with the real
+`ANTHROPIC_API_KEY`, model `claude-sonnet-4-6`.
+
+- **run_id: `disc-20260909-182538`**
+- Goal: "search for member M1001 and read their name and current
+  savings balance."
+- **outcome: completed**, 6 steps, **0 retries, 0 resolution errors**,
+  ~19.3k input / ~530 output tokens total.
+- Steps the model took (with its stated reason):
+  1. `type` textbox "Search term (member ID or last name)" ← "M1001"
+     — *enter the member ID to search for*
+  2. `click` button "Look Up" — *submit the search*
+  3. `click` link "Open detail for Alice Nguyen, member M1001" —
+     *open the member detail page*. Note: on the results page a `cell`
+     and the `link` inside it share this exact accessible name; the
+     role filter + `exact=True` still resolved to 1 element.
+  4. `extract` cell "Alice Nguyen" → `member_name` — label resolved to
+     "Full name" via `rowheader_in_row`
+  5. `extract` cell "$18,750.42" → `savings_balance` — label
+     "Savings balance"
+  6. `done` citing `[member_name, savings_balance]` — validated
+     against the two captured slots
+- The model skipped clicking the "Member ID" radio (it is checked by
+  default and M1001 is a valid ID search either way) — a reasonable
+  shortcut, and something the compiler/policy step will need to account
+  for.
+- No retries or resolution failures occurred on this run; the exact-
+  match resolver and the `done` guard were exercised (step 3's
+  name collision, step 6's validation) but not stressed by a failure.
+
+### Committed
+
+- `CLAUDE.md` — discovery tool vocabulary section
+- `agent/perception.py`, `agent/discovery_tools.py`,
+  `agent/trajectory.py`, `agent/discovery.py`, `agent/discover.py`,
+  `agent/tests/`
+- `requirements.txt` — anthropic, playwright, python-dotenv, pytest;
+  `.env.example`
+- `evidence/runs/disc-20260909-182538/` — trajectory, JSONL log,
+  6 screenshots
+- this BUILD_LOG entry
