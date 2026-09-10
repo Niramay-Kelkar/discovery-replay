@@ -253,41 +253,50 @@ def _generalize_name(
 
     Two transforms, in order:
 
-    1. Replace any discovered *input* value with its ``{{param}}``
-       template -- replay fills it per invocation.
-    2. If a discovered *output* value (a member's name, a balance) still
-       appears, truncate the name before it and switch to a substring
-       match: that value is data the caller does not know before this
-       step, so it cannot be part of a stable locator.
+    1. If a discovered *output* value (a member's name, a balance)
+       appears in the resolved name, truncate before it and switch to a
+       substring match: that value is data the caller does not know
+       before this step, so it cannot be part of a stable locator. This
+       is done against the *raw* name, before any input templating --
+       otherwise templating a value that is a substring of an output
+       (a last name inside a full name, e.g. searching "Okafor" and
+       landing on "... James Okafor ...") would split the output value
+       and hide it from this check, leaving a broken exact-match locator.
+    2. Replace any discovered *input* value that still survives in the
+       (possibly truncated) prefix with its ``{{param}}`` template --
+       replay fills it per invocation.
     """
-    note_bits: list[str] = []
-    out = name
-    for b in bindings:
-        if b.discovered_value and b.discovered_value in out:
-            out = out.replace(b.discovered_value, "{{%s}}" % b.param.name)
-            note_bits.append(
-                "templated input %r -> {{%s}}" % (b.discovered_value, b.param.name)
-            )
-
     cut: Optional[int] = None
     for val in sorted((v for v in captured_values if v), key=len, reverse=True):
-        if val in out:
-            idx = out.index(val)
+        if val in name:
+            idx = name.index(val)
             cut = idx if cut is None else min(cut, idx)
 
     exact = True
+    note: Optional[str] = None
+    out = name
     if cut is not None:
-        truncated = out[:cut].rstrip(" ,;:-–")
-        # the templating notes are moot once we truncate to a prefix
-        note_bits = [
+        out = name[:cut].rstrip(" ,;:-–")
+        exact = False
+        note = (
             "resolved accessible name %r contains member-specific data; "
             "substring match on the stable prefix %r (the rest -- the member "
-            "name and id -- is not known before this step)" % (name, truncated)
-        ]
-        out = truncated
-        exact = False
+            "name and id -- is not known before this step)" % (name, out)
+        )
 
-    return out, exact, ("; ".join(note_bits) or None)
+    templated_bits: list[str] = []
+    for b in bindings:
+        if b.discovered_value and b.discovered_value in out:
+            out = out.replace(b.discovered_value, "{{%s}}" % b.param.name)
+            templated_bits.append(
+                "templated input %r -> {{%s}}" % (b.discovered_value, b.param.name)
+            )
+    # once truncated to a prefix the templating notes are moot; keep the
+    # substring-match note. Otherwise the templating note is the story.
+    if exact and templated_bits:
+        note = "; ".join(templated_bits)
+
+    return out, exact, note
 
 
 # ---------------------------------------------------------------------------
