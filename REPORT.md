@@ -104,6 +104,7 @@ flowchart TD
     ACT["ACT (once, before verification begins)"] --> CHECK{"SETTLE + CHECK"}
     CHECK -->|checkpoint passes| NEXT[Next step / Success]
     CHECK -->|"declared outcome matched<br/>(business_outcome, terminal)"| BO[BusinessOutcome]
+    CHECK -->|"declared outcome matched (hard_failure class)"| HF3[HardFailure]
     CHECK -->|"on_step_timeout,<br/>retries remaining"| RETRY["sleep 1.5s, re-run<br/>SETTLE + CHECK only"]
     RETRY --> CHECK
     CHECK -->|"any other trigger, or<br/>retries exhausted"| TRIG{"policy action"}
@@ -122,7 +123,7 @@ That expected-versus-observed design paid off during this build. The target app'
 
 On UI drift specifically: this isn't built, and it's worth saying so plainly rather than implying otherwise. Nothing compares the live page against what discovery recorded. The target app's UI is deliberately stable, so this was a scoped decision rather than an oversight, but drift isn't detected, it's contained. If the UI did change, a renamed control fails locator resolution and escalates with the exact accessible name that no longer resolves; a restructured page fails a checkpoint and escalates with a trace; a redirect trips the narrowed route allowlist and hard-fails outright. Real drift detection would need a structural fingerprint of each step's page captured at compile time and diffed at replay, none of which exists today; what does exist ensures that drift, if it happened, would surface as an actionable failure rather than a silent wrong answer.
 
-Timeouts apply at several independent layers rather than one global clock: a per-step settle bound (2 to 12 seconds depending on the step, drawn from the artifact itself), a fixed 4-second window per ranked locator attempt, fixed per-action timeouts inside the action phase, and a 900-second (configurable) human handoff window. There is no overall wall-clock limit on a replay run; its total duration is bounded only by the sum of these individually-scoped waits.
+Timeouts apply at several independent layers rather than one global clock: a per-step settle bound (2 to 12 seconds depending on the step, drawn from the artifact itself), a fixed 4-second window per ranked locator attempt, per-action timeouts inside the action phase (a flat 4 seconds for fill/select_option/press_key; for a navigating click, the larger of 4 seconds or the step's own settle bound, so slow pages are absorbed rather than tripping the action itself), and a 900-second (configurable) human handoff window. There is no overall wall-clock limit on a replay run; its total duration is bounded only by the sum of these individually-scoped waits.
 
 ## 4. Heterogeneity & multi-tenant
 

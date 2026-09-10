@@ -1350,3 +1350,9 @@ literal constant like `fill`'s 4000ms.
 ### Committed
 
 - `REPORT.md`, this entry
+
+---
+
+## 2026-09-10 — REPORT.md §3 precision corrections
+
+Two wording fixes in the Determinism & error handling section caught on a self-review pass against the code (not new findings): added the diagram edge for a matched outcome classified `hard_failure` routing to `HardFailure` (`known_hard_failure_outcome`, replay.py:817), so the chart is generally correct rather than only accidentally correct for `member_lookup`'s all-`business_outcome` outcomes; and reworded "fixed per-action timeouts" to spell out that a navigating click's timeout is `max(4s, step settle bound)`, not a uniform constant. Committed: `REPORT.md`, this entry.
