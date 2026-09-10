@@ -867,3 +867,118 @@ directly.
 
 (Raw evidence for the live run stays under `evidence/replays/` and is
 git-ignored — not committed.)
+
+---
+
+## 2026-09-10 — Closing the last-name search gap in `member_lookup`
+
+### Why
+
+Every prior compile of `member_lookup` came from `disc-20260909-182538`,
+an ID lookup. "Member ID" is the pre-checked radio, so that run never
+touched the search-field selector and never exercised a last-name
+search. The compiled capability was honestly narrowed to ID-only, with
+the gap recorded in the policy's `known_gaps` and the notes sidecar. The
+capability was documented as incomplete rather than made complete.
+
+### Step 1 — a real last-name discovery run
+
+`python -m agent.discover` against the live `target_app` (port 5001),
+real `ANTHROPIC_API_KEY`, model `claude-sonnet-4-6`. Goal phrased to
+force the radio:
+
+> In the member search screen, switch the search field to last name by
+> clicking the 'Last name' radio button (do not use the default 'Member
+> ID' option), then search for the member with last name Okafor, open
+> their record, and read their full name and current savings balance.
+
+`disc-20260910-084016`, 7 steps, outcome `completed`. Trajectory:
+`click radio "Last name"` → `type "Okafor"` → `click "Look Up"` →
+`click "Open detail for James Okafor, member M1004"` → `extract full_name`
+→ `extract savings_balance` → `done`. Captured `full_name = "James
+Okafor"`, `savings_balance = "$2,219.75"` (M1004, a seeded happy-path
+member other than M1001).
+
+### Step 2 — compiler fix so the last-name trajectory compiles honestly
+
+`_generalize_name` (`agent/compile.py`) previously templated input
+values into a resolved accessible name *before* checking whether an
+extracted member value also appeared in it. On a last-name search the
+search term is a substring of the extracted full name ("Okafor" inside
+"James Okafor"). Templating first split the full name, so the
+member-data truncation check no longer matched it, and the compiler
+shipped `link name="Open detail for James {{search_term}}, member
+M1004"` as an **exact** match — which resolves for nobody.
+
+Fixed: the truncation-to-stable-prefix check now runs against the raw
+resolved name first; input templating runs afterward on whatever prefix
+survives. The "Open detail for …" link compiles to the `"Open detail
+for"` substring locator (`exact=false`, `nth=0`) for any member, as it
+already did on the ID path. Regression test added
+(`test_last_name_inside_full_name_does_not_defeat_truncation`); the ID
+trajectory's output is unchanged.
+
+### Step 3 — recompiled `member_lookup` (v1.0.0 → v1.1.0)
+
+`disc-20260910-084016` is now the canonical source — it covers the whole
+flow, radio included. `agent/policies/member_lookup.py`:
+
+- `search_field` InputBinding added (`discovered_value="Last name"`),
+  declared as a closed enum input `["Member ID", "Last name"]` — the two
+  accessible names the radio exposes. The compiler templates the
+  discovered radio name to `{{search_field}}` and emits a
+  `click_search_field` step: `role=radio name={{search_field}}`. Same
+  shape as the hand-authored `schema/example_artifact.json`, but now
+  mechanically derived from an observed element.
+- `search_term` binding is now the last name `"Okafor"`.
+- `output_name_mapping` is the identity map `{full_name, savings_balance}`
+  (the run captured the contract names directly this time).
+- `extra_allowlist_routes=["/member/*"]`: the last-name flow lands on
+  `/member/M1004`, where `M1004` is the id the search returned, not an
+  input value, so route narrowing leaves it literal. `/member/*` is
+  added by hand, justified, so replay reaches whichever member it looks
+  up.
+- `known_gaps` entry rewritten from "not exercised" to `RESOLVED`, with
+  the both-modes verification called out.
+
+Overwrote `evidence/compiled/member_lookup.capability.json` and
+`.notes.md`. The notes sidecar gets a "What changed in this recompile"
+section covering all of the above.
+
+### Step 4 — verified against the live app, both modes
+
+Replayed the recompiled artifact (`--no-handoff`, live `target_app`):
+
+| inputs | result | outputs |
+|---|---|---|
+| `search_field="Last name"`, `search_term="Okafor"` | Success | `James Okafor` / `$2,219.75` |
+| `search_field="Member ID"`, `search_term="M1001"` | Success | `Alice Nguyen` / `$18,750.42` |
+
+Only the first combination was ever literally observed during discovery.
+The second — a Member-ID search — passes because the `search_field`
+input drives the one compiled radio step and the `"Open detail for"`
+locator generalizes across members. That is the proof the capability
+generalizes, not just a claim: the ID path is now confirmed by
+execution, and the last-name path exists at all, which it did not
+before. Redaction still holds — a grep for the member names / ids /
+balances across `evidence/replays/` comes back empty.
+
+### Tests
+
+`agent/tests/test_compile.py` rewritten onto `disc-20260910-084016` and
+the two-mode capability: the `click_search_field` step, the
+`search_field` enum input, the substring-truncation regression, routes
+including `/member/*`, and the `known_gaps` "RESOLVED" record. Full
+suite: 42 passed.
+
+### Committed
+
+- `agent/compile.py` (the `_generalize_name` ordering fix)
+- `agent/policies/member_lookup.py`, `agent/compile_cli.py` (doc example)
+- `evidence/compiled/member_lookup.capability.json` + `.notes.md`
+- `agent/tests/test_compile.py`
+- this BUILD_LOG entry
+
+(Raw evidence for `disc-20260910-084016` and the two replays stays under
+`evidence/runs/` and `evidence/replays/` and is git-ignored — not
+committed.)
