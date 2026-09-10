@@ -77,8 +77,25 @@ class Perception:
 
     # -- resolution -------------------------------------------------------
 
-    def resolve(self, role: str, name: str, *, nth: Optional[int] = None) -> ResolvedElement:
-        loc = self.page.get_by_role(role, name=name, exact=True)
+    def resolve(
+        self,
+        role: str,
+        name: str,
+        *,
+        exact: bool = True,
+        nth: Optional[int] = None,
+    ) -> ResolvedElement:
+        """Resolve a role+name to exactly one element.
+
+        Exact accessible-name matching is the default and the only mode
+        discovery ever uses (the substring-ambiguity hazard in hostile
+        table markup). Replay may pass ``exact=False`` for the handful of
+        locators the compiler deliberately generalized to a stable prefix
+        (e.g. ``"Open detail for"``); those always carry an ``nth`` so a
+        multi-match is still resolved to a single element rather than
+        raising.
+        """
+        loc = self.page.get_by_role(role, name=name, exact=exact)
         count = loc.count()
 
         if nth is not None:
@@ -181,6 +198,40 @@ class Perception:
         if not res:
             return None, None
         return res.get("label"), res.get("source")
+
+    def read_paired_value(self, loc: Locator) -> str:
+        """Read the value that sits *next to* a resolved label element.
+
+        Discovery resolves the value cell directly and reads its own
+        text; the compiler rewrites that locator to target the field's
+        *label* (the ``rowheader``) so the artifact works for any member.
+        Replay therefore lands on the label and has to step across to the
+        paired value cell in the same row. Falls back to the element's
+        own text when there is no row structure (a ``text_label``
+        fallback locator may resolve straight onto the value).
+        """
+        js = """
+        (el) => {
+          const clean = s => (s || '').replace(/\\s+/g, ' ').trim();
+          const row = el.closest('tr,[role="row"]');
+          if (row) {
+            const cells = row.querySelectorAll(
+              'td,[role="cell"],[role="gridcell"]');
+            for (const c of cells) {
+              if (c !== el && !el.contains(c) && clean(c.textContent))
+                return clean(c.textContent);
+            }
+          }
+          return clean(el.textContent);
+        }
+        """
+        try:
+            return (loc.evaluate(js) or "").strip()
+        except Exception:
+            try:
+                return (loc.inner_text(timeout=2000) or "").strip()
+            except Exception:
+                return ""
 
     # -- evidence (not part of what the model sees) ---------------------
 

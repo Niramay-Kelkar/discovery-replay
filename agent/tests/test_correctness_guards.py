@@ -39,9 +39,13 @@ def test_done_accepts_only_captured_names():
         assert "member_name" in str(e)
 
 
-def test_resolve_uses_exact_matching():
+def test_resolve_defaults_to_exact_and_fails_on_ambiguity():
     import inspect
     from agent.perception import Perception
+    sig = inspect.signature(Perception.resolve)
+    # exact matching is the default; replay may opt out per-locator, discovery
+    # never does (it passes no `exact`).
+    assert sig.parameters["exact"].default is True
     src = inspect.getsource(Perception.resolve)
-    assert "exact=True" in src, "resolve must pin exact=True"
-    assert "count != 1" in src, "ambiguous (>1) matches must fail"
+    assert "exact=exact" in src, "resolve must pass its exact flag through"
+    assert "count != 1" in src, "ambiguous (>1) matches must fail without an nth"
