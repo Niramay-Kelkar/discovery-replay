@@ -74,6 +74,47 @@ build should not repeat those gaps:
    folded into the replay loop, so it can be pointed to and explained
    directly.
 
+## Discovery tool vocabulary (decided before the agent loop)
+
+The discovery LLM drives the browser through exactly **five** tools and
+no others. Every turn it must call exactly one of them
+(`tool_choice: {"type": "any"}`, parallel tool use disabled) — it never
+emits free-form text that gets parsed for intent. The set is small on
+purpose: each extra verb is another degree of freedom the compiler and
+replay have to reason about, and another way a run can wander.
+
+| tool | params | why it's in the set |
+|---|---|---|
+| `navigate` | `path` | The agent has to reach the entry point, and legacy flows move between server-rendered pages by URL. Without it the run can't start. Constrained to same-origin paths. |
+| `click` | `role`, `name` | The only pointer interaction the target needs: links, buttons, radios. Resolved by exact accessible role+name against the live tree. |
+| `type` | `role`, `name`, `text` | Fills a form field. Separate from `click` because entering a value and activating a control are different acts with different failure modes, and the compiler emits different step kinds for them. |
+| `extract` | `role`, `name`, `output_name` | Reads a value off the page into a named slot. **The value is read from the live DOM/accessibility tree at the resolved element, never taken from the model's observation text** — `extract` is the project's only trusted path from "what's on screen" to "a captured value." Also walks from the value element to its associated label so the compiler can later build locators/checkpoints from the field's label, not its literal value. |
+| `done` | `output_names`, `summary` | Ends the run. Takes only `output_names` that reference values already captured by a successful `extract` in this run — it cannot accept a self-reported value. Referencing an uncaptured name fails the same way a zero-match resolution does ("extract it first"). |
+
+### Considered and rejected
+
+- **`scroll`** — Playwright resolves elements and reads text regardless
+  of viewport position; auto-scroll-into-view covers the interaction
+  case. A `scroll` tool would only add non-determinism (how far? from
+  where?) with no capability gain on server-rendered pages.
+- **`hover`** — the target has no hover-triggered menus or tooltips
+  that gate the flow. Reserved: if a real target needs it, it's a
+  future addition with its own justification, not a default.
+- **`wait` / `sleep`** — waiting is the loop's job, not the model's.
+  SETTLE after each action is handled mechanically (network-idle / DOM
+  stable with a bounded timeout). Letting the model choose to "wait"
+  invites it to paper over a genuine failure with a sleep.
+- **`screenshot`** — screenshots are captured every step for the
+  evidence trail, but they are not a decision the model makes and not
+  something it reasons over. Perception is the accessibility snapshot
+  only, so discovery and replay share one notion of "what's on the
+  page."
+- **`go_back` / history** — the flows are forward-only; re-navigating
+  by path is unambiguous where a back step is not.
+- **`assert` / `check`** — verification is not the model's call.
+  Checkpoints are compiled from what was observed, and outcome
+  detection is its own module.
+
 ## Standing implementation lessons (apply from the start, not after a bug)
 
 - Never assume an accessibility role/attribute exists — verify against
