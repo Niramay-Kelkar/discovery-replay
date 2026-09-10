@@ -1093,3 +1093,32 @@ committed `compiled/…notes.md`; nothing in the set derives from `.env`.
 
 - `evidence/discovery/`, `evidence/replay/`, `evidence/README.md`, this
   BUILD_LOG entry
+
+---
+
+## 2026-09-10 — REPORT.md Architecture section
+
+Wrote `## 1. Architecture` in `REPORT.md` (was an empty placeholder): the
+five-process layout, a Mermaid flowchart of the artifact/file handoffs
+and the one live coupling (replay <-> operator console over the shared
+SQLite file), the four load-bearing decisions (mechanical/policy split,
+shared perception + exact-name resolution, one-shot ACT, synchronous
+SQLite-poll escalation), what is deliberately not built, and the
+language/framework choices.
+
+Checked the diagram against `agent/discovery.py`, `agent/compile.py`,
+`agent/replay.py`, `agent/escalation.py`, `agent/operator_console.py`:
+process ports, browser ownership, file paths, the poll-not-push
+escalation loop, and the console touching only the DB all hold. Known
+simplifications left in at the diagram's altitude: the operator's
+"CDP attach :9222" edge points at target_app, but the attach is really
+to the Chromium `agent.replay` owns (which is displaying target_app) and
+only when replay was started with `--cdp-port`; :9222 is the port used
+in `VERIFICATION.md`, not a default (`cdp_port` defaults to `None`); and
+the compiler also emits a `*.notes.md` sidecar next to `capability.json`
+that the diagram doesn't show. None of these are wrong, they are the
+same abstraction level as the discover/replay -> target_app edges.
+
+### Committed
+
+- `REPORT.md`, this BUILD_LOG entry
