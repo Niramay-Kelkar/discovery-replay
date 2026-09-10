@@ -285,6 +285,7 @@ class Replayer:
         headed: bool = False,
         evidence_root: str = "evidence/replays",
         handoff_enabled: bool = True,
+        confirmed: bool = False,
         session_db_path: str = DEFAULT_DB_PATH,
         handoff_timeout_override: Optional[float] = None,
         poll_interval_s: float = 2.0,
@@ -298,6 +299,7 @@ class Replayer:
         self.ev = _Evidence(self.run_dir / "replay.jsonl")
 
         self.handoff_enabled = handoff_enabled
+        self.confirmed = confirmed
         self.session_db_path = session_db_path
         self.handoff_timeout_override = handoff_timeout_override
         self.poll_interval_s = poll_interval_s
@@ -373,6 +375,17 @@ class Replayer:
                 expected="capability.policy_authored_by to be set",
                 observed="policy_authored_by is empty; replay refuses to run "
                 "an artifact whose policy layer was never authored",
+            )
+        if self.cap.requires_confirmation and not self.confirmed:
+            return HardFailure(
+                **self._base_fields(),
+                phase="preflight",
+                trigger="confirmation_required",
+                expected="explicit operator confirmation (--confirmed) before "
+                f"running capability {self.cap.capability_id!r}",
+                observed=f"capability {self.cap.capability_id!r} declares "
+                "requires_confirmation=true and no --confirmed flag was passed; "
+                "refusing to run unattended (no browser launched)",
             )
         missing = [
             p.name for p in self.cap.inputs

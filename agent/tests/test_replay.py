@@ -132,6 +132,31 @@ def test_preflight_requires_declared_inputs():
     assert res.trigger == "missing_input"
 
 
+def test_preflight_gates_a_capability_that_requires_confirmation():
+    cap = _cap().model_copy(update={"requires_confirmation": True})
+    inputs = {"search_field": "Member ID", "search_term": "M1001"}
+
+    # without --confirmed: hard-fail in preflight, no browser launched
+    res = Replayer(cap, evidence_root="/tmp/replay-test-ev").run(inputs)
+    assert isinstance(res, HardFailure)
+    assert res.trigger == "confirmation_required"
+    assert res.phase == "preflight"
+    assert cap.capability_id in res.observed
+
+    # with confirmed=True: preflight passes (returns None, run proceeds past it)
+    r = Replayer(cap, confirmed=True, evidence_root="/tmp/replay-test-ev")
+    assert r._preflight(inputs) is None
+
+
+def test_preflight_unaffected_when_confirmation_not_required():
+    cap = _cap()  # member_lookup: requires_confirmation is False
+    assert cap.requires_confirmation is False
+    inputs = {"search_field": "Member ID", "search_term": "M1001"}
+    assert Replayer(cap, evidence_root="/tmp/replay-test-ev")._preflight(inputs) is None
+    assert Replayer(cap, confirmed=True,
+                    evidence_root="/tmp/replay-test-ev")._preflight(inputs) is None
+
+
 # --- result contract is four distinct structural types -------------------
 
 def test_result_types_are_distinct_and_serialisable():

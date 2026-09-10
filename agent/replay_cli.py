@@ -50,6 +50,10 @@ def main(argv=None) -> int:
     p.add_argument("--base-url", default=None,
                    help="override the artifact's target.base_url")
     p.add_argument("--headed", action="store_true")
+    p.add_argument("--confirmed", action="store_true", default=False,
+                   help="explicit operator confirmation; required before a "
+                        "capability whose artifact declares requires_confirmation "
+                        "will run")
     p.add_argument("--evidence-root", default=str(REPO_ROOT / "evidence" / "replays"))
     p.add_argument("--json", action="store_true", help="print the full result as JSON")
     p.add_argument("--no-handoff", action="store_true",
@@ -77,6 +81,7 @@ def main(argv=None) -> int:
         capability, base_url=args.base_url, headed=args.headed,
         evidence_root=args.evidence_root,
         handoff_enabled=not args.no_handoff,
+        confirmed=args.confirmed,
         session_db_path=args.session_db,
         handoff_timeout_override=args.handoff_timeout,
         poll_interval_s=args.poll_interval,

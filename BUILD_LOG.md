@@ -1122,3 +1122,37 @@ same abstraction level as the discover/replay -> target_app edges.
 ### Committed
 
 - `REPORT.md`, this BUILD_LOG entry
+
+---
+
+## 2026-09-10 — Enforce requires_confirmation in replay
+
+`Capability.requires_confirmation` was declared and set per capability
+but nothing in the replay decision path read it: an artifact with
+`requires_confirmation: true` would have run unattended with no gate —
+a real hole in the "handle the risky class conservatively" requirement.
+
+### Changed
+
+- `agent/replay.py`: `Replayer` takes a new `confirmed: bool = False`.
+  `_preflight` now hard-fails with trigger `confirmation_required`
+  (phase `preflight`, no browser launched) when the artifact declares
+  `requires_confirmation` and `confirmed` is not set. Message names the
+  capability. Ordered after the `policy_unauthored` check and before
+  input/guardrail checks.
+- `agent/replay_cli.py`: new `--confirmed` flag (default False), threaded
+  into `Replayer`.
+- `agent/tests/test_replay.py`: three cases — a `requires_confirmation`
+  capability is rejected without `--confirmed`, accepted with it, and a
+  `requires_confirmation=False` capability (member_lookup) is unaffected
+  either way.
+
+### Verified
+
+Full suite: 44 passed (was 41). `member_lookup` has
+`requires_confirmation: false`, so its replay path is unchanged.
+
+### Committed
+
+- `agent/replay.py`, `agent/replay_cli.py`, `agent/tests/test_replay.py`,
+  this BUILD_LOG entry
