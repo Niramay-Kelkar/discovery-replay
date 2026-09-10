@@ -1,7 +1,7 @@
 """CLI for the compiler: Trajectory + PolicySpec -> compiled Capability.
 
     python -m agent.compile_cli \\
-        --trajectory evidence/runs/disc-20260909-182538/trajectory.json \\
+        --trajectory evidence/runs/disc-20260910-084016/trajectory.json \\
         --policy member_lookup \\
         --out evidence/compiled/member_lookup.capability.json
 

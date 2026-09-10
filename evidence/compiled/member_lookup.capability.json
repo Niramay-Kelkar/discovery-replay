@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "capability_id": "member_lookup",
-  "version": "1.0.0",
-  "description": "Look up a bank member by member ID and return their record and current savings balance. (Member-ID search only -- see this module's docstring for the last-name path.)",
+  "version": "1.1.0",
+  "description": "Look up a bank member by member ID or by last name and return their record and current savings balance. The search_field input selects which mode; both are exercised by the compiled steps.",
   "target": {
     "app": "acme-teller-console",
     "base_url": "http://127.0.0.1:5001",
@@ -10,11 +10,22 @@
   },
   "inputs": [
     {
+      "name": "search_field",
+      "type": "string",
+      "required": true,
+      "description": "Which field to search on -- the accessible name of the search-field radio to select before searching.",
+      "example": "Last name",
+      "allowed_values": [
+        "Member ID",
+        "Last name"
+      ]
+    },
+    {
       "name": "search_term",
       "type": "string",
       "required": true,
-      "description": "The member ID to look up (search is by member ID).",
-      "example": "M1001"
+      "description": "The member ID or last name to look up, matching the search_field selection.",
+      "example": "Okafor"
     }
   ],
   "outputs": [
@@ -51,6 +62,47 @@
       },
       "checkpoint": {
         "kind": "any_of",
+        "description": "step succeeded: the next step's target (radio {{search_field}}) is visible, OR a recognized business outcome was detected",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "radio",
+              "name": "{{search_field}}",
+              "exact": true,
+              "note": "templated input 'Last name' -> {{search_field}}"
+            }
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 2,
+      "id": "click_search_field",
+      "description": "Switch the search field to Last name as required by the goal",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "radio",
+          "name": "{{search_field}}",
+          "exact": true,
+          "note": "templated input 'Last name' -> {{search_field}}"
+        }
+      ],
+      "settle": {
+        "wait_for": "network_idle",
+        "max_wait_seconds": 12.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
         "description": "step succeeded: the next step's target (textbox Search term (member ID or last name)) is visible, OR a recognized business outcome was detected",
         "checks": [
           {
@@ -71,9 +123,9 @@
       "retryable": true
     },
     {
-      "ordinal": 2,
+      "ordinal": 3,
       "id": "enter_search_term",
-      "description": "Enter the member ID to search for",
+      "description": "Enter the last name to search for the member",
       "action": "fill",
       "locators": [
         {
@@ -112,9 +164,9 @@
       "retryable": true
     },
     {
-      "ordinal": 3,
+      "ordinal": 4,
       "id": "click_look_up",
-      "description": "Submit the search to find member M1001",
+      "description": "Submit the search to find the member with last name Okafor",
       "action": "click",
       "locators": [
         {
@@ -142,7 +194,7 @@
               "name": "Open detail for",
               "exact": false,
               "nth": 0,
-              "note": "resolved accessible name 'Open detail for Alice Nguyen, member M1001' contains member-specific data; substring match on the stable prefix 'Open detail for' (the rest -- the member name and id -- is not known before this step); nth=0 -- a substring match can hit several result rows, take the first"
+              "note": "resolved accessible name 'Open detail for James Okafor, member M1004' contains member-specific data; substring match on the stable prefix 'Open detail for' (the rest -- the member name and id -- is not known before this step); nth=0 -- a substring match can hit several result rows, take the first"
             }
           },
           {
@@ -153,9 +205,9 @@
       "retryable": true
     },
     {
-      "ordinal": 4,
+      "ordinal": 5,
       "id": "click_open_detail_for",
-      "description": "Open the member detail page to see Alice Nguyen's savings balance",
+      "description": "Open the member record for James Okafor",
       "action": "click",
       "locators": [
         {
@@ -165,7 +217,7 @@
           "name": "Open detail for",
           "exact": false,
           "nth": 0,
-          "note": "resolved accessible name 'Open detail for Alice Nguyen, member M1001' contains member-specific data; substring match on the stable prefix 'Open detail for' (the rest -- the member name and id -- is not known before this step); nth=0 -- a substring match can hit several result rows, take the first"
+          "note": "resolved accessible name 'Open detail for James Okafor, member M1004' contains member-specific data; substring match on the stable prefix 'Open detail for' (the rest -- the member name and id -- is not known before this step); nth=0 -- a substring match can hit several result rows, take the first"
         }
       ],
       "settle": {
@@ -195,9 +247,9 @@
       "retryable": true
     },
     {
-      "ordinal": 5,
+      "ordinal": 6,
       "id": "extract_full_name",
-      "description": "Extract the member's full name",
+      "description": "Read the full name of the member from their record",
       "action": "extract",
       "locators": [
         {
@@ -244,9 +296,9 @@
       "retryable": true
     },
     {
-      "ordinal": 6,
+      "ordinal": 7,
       "id": "extract_savings_balance",
-      "description": "Extract the member's current savings balance",
+      "description": "Read the current savings balance of the member from their record",
       "action": "extract",
       "locators": [
         {
@@ -366,6 +418,7 @@
     "allowlist_routes": [
       "/",
       "/member/*",
+      "/member/M1004",
       "/search"
     ],
     "allowlist_action_types": [
@@ -392,10 +445,10 @@
     "on_checkpoint_failure": "escalate"
   },
   "discovery": {
-    "run_id": "disc-20260909-182538",
+    "run_id": "disc-20260910-084016",
     "model": "claude-sonnet-4-6",
-    "goal": "search for member M1001 and read their name and current savings balance",
-    "completed_at": "2026-09-10T01:25:56.562441+00:00"
+    "goal": "In the member search screen, switch the search field to last name by clicking the 'Last name' radio button (do not use the default 'Member ID' option), then search for the member with last name Okafor, open their record, and read their full name and current savings balance.",
+    "completed_at": "2026-09-10T15:40:38.165258+00:00"
   },
-  "policy_authored_by": "niramay (hand-authored policy for disc-20260909-182538)"
+  "policy_authored_by": "niramay (hand-authored policy for disc-20260910-084016)"
 }

@@ -1,17 +1,18 @@
 """Hand-authored policy layer for the ``member_lookup`` capability.
 
-Consumed by ``agent/compile.py`` alongside the Phase 3 discovery
-trajectory ``disc-20260909-182538``. The compiler fills the mechanical
-layer from that trajectory; everything in this file is the policy layer,
-authored by hand.
+Consumed by ``agent/compile.py`` alongside the discovery trajectory
+``disc-20260910-084016``. The compiler fills the mechanical layer from
+that trajectory; everything in this file is the policy layer, authored
+by hand.
 
 Why this is separate from the trajectory
 ----------------------------------------
-The disc-20260909-182538 run succeeded: it looked up member M1001, read
-Alice Nguyen's name and $18,750.42 balance, and stopped. By definition
-it never saw the access-denied page, never saw "no such member", never
-hit the supervisor-review interstitial or the slow detail page. It
-therefore has *no evidence* about:
+The disc-20260910-084016 run succeeded: it switched the search field to
+"Last name", looked up member Okafor, opened James Okafor's record, read
+his name and $2,219.75 balance, and stopped. By definition it never saw
+the access-denied page, never saw "no such member", never hit the
+supervisor-review interstitial or the slow detail page. It therefore
+has *no evidence* about:
 
 * which non-happy results are legitimate answers vs. bugs
   (``expected_outcomes``),
@@ -27,39 +28,45 @@ Those are authored below from knowledge of the target app
 expected outcomes here were verified against the live app during the
 schema work and match ``schema/example_artifact.json``).
 
-Trajectory gap: the ``search_field`` radio
-------------------------------------------
-The discovery run typed "M1001" and clicked "Look Up" without ever
-touching the "Member ID" / "Last name" radio -- "Member ID" is
-pre-checked and valid by default for an ID search (the resulting URL was
-``/search?field=member_id&q=M1001``). So the run only ever exercised
-**one** of the two search modes.
+The search-field radio: gap closed
+----------------------------------
+An earlier discovery run (``disc-20260909-182538``) drove an ID lookup
+and never touched the "Member ID" / "Last name" radio -- "Member ID" is
+pre-checked, so an ID search works without it. That trajectory only ever
+exercised one of the two search modes, and the compiled capability was
+honestly narrowed to ID-only with the gap recorded here.
 
-The compiler does **not** invent a "click the search-field radio" step
-to cover the other mode -- a fabricated step that was never resolved
-against the live tree is exactly the kind of thing that breaks in
-production. Consequences, by design:
+``disc-20260910-084016`` closes that gap the right way -- with a real
+run, not a fabricated step. Its goal forced the agent to click the
+"Last name" radio before searching, so the trajectory now contains a
+genuine, live-resolved ``click`` on the radio (resolved role ``radio``,
+accessible name ``"Last name"``). The compiler:
 
-* ``INPUT_BINDINGS`` below declares only ``search_term``. There is no
-  ``search_field`` input. The compiled capability searches by member ID,
-  because that is the only path discovery proved.
-* ``schema/example_artifact.json`` (hand-authored) *does* have a
-  ``choose_search_field`` step and a ``search_field`` enum input -- that
-  is a human asserting both modes work, which is legitimate for a
-  hand-authored artifact but not something a compiler may do from one
-  run.
+* templates that resolved name against the ``search_field`` InputBinding
+  below, emitting a ``click_search_field`` step whose locator is
+  ``role=radio name={{search_field}}`` -- the same shape the
+  hand-authored ``schema/example_artifact.json`` uses, but now derived
+  mechanically from an observed element rather than asserted;
+* declares ``search_field`` as a closed enum input (``"Member ID"`` /
+  ``"Last name"``) -- the two accessible names the radio actually
+  exposes.
 
-To get a full two-mode capability, do one of:
+Replay picks the radio by the ``search_field`` value it is handed, so
+the one compiled step covers both modes. The capability is now genuinely
+two-mode, proven end to end (see ``*.notes.md`` and BUILD_LOG.md for the
+both-modes replay verification), not two-mode by hand-assertion.
 
-1. a second discovery run whose goal forces the "Last name" radio path,
-   then compile both trajectories together; or
-2. hand-author the ``choose_search_field`` step and the ``search_field``
-   enum input directly onto the compiled artifact, reviewed as a
-   deliberate act.
-
-This compiler takes neither shortcut automatically: it emits the
-narrower, honest single-mode capability and records the gap in the
-``*.notes.md`` sidecar.
+``extra_allowlist_routes`` and the member detail route
+-----------------------------------------------------
+Route narrowing keys off path segments that equal a *discovered input
+value*. In this run the search term was ``"Okafor"`` (a last name), so
+the matched member's id ``M1004`` in ``/member/M1004`` is not an input
+value and does not get generalized to ``/member/*`` automatically -- the
+compiler would ship the literal ``/member/M1004``. That id is data the
+run happened to land on, not a fixed route, so ``/member/*`` is added
+here explicitly as an authored, justified allowlist entry (every seeded
+member detail page lives under ``/member/<id>``; replay must reach the
+one its own search returns, whichever member that is).
 """
 from __future__ import annotations
 
@@ -72,18 +79,40 @@ from agent.models import (
     ParamType,
 )
 
-# --- mechanical: what the single discovered input actually was ---------------
+# --- mechanical: what the discovered inputs actually were -------------------
+#
+# Order here is the order the inputs appear in the compiled artifact;
+# it matches schema/example_artifact.json (search_field, then search_term).
 
 INPUT_BINDINGS: list[InputBinding] = [
+    InputBinding(
+        param=InputParam(
+            name="search_field",
+            type=ParamType.STRING,
+            required=True,
+            description=(
+                "Which field to search on -- the accessible name of the "
+                "search-field radio to select before searching."
+            ),
+            example="Last name",
+            allowed_values=["Member ID", "Last name"],
+        ),
+        # the accessible name of the radio the disc-20260910-084016 run
+        # clicked; the compiler templates this literal to {{search_field}}
+        discovered_value="Last name",
+    ),
     InputBinding(
         param=InputParam(
             name="search_term",
             type=ParamType.STRING,
             required=True,
-            description="The member ID to look up (search is by member ID).",
-            example="M1001",
+            description=(
+                "The member ID or last name to look up, matching the "
+                "search_field selection."
+            ),
+            example="Okafor",
         ),
-        discovered_value="M1001",
+        discovered_value="Okafor",
     ),
 ]
 
@@ -143,11 +172,11 @@ _EXPECTED_OUTCOMES = [
 
 POLICY_SPEC = PolicySpec(
     capability_id="member_lookup",
-    version="1.0.0",
+    version="1.1.0",
     description=(
-        "Look up a bank member by member ID and return their record and "
-        "current savings balance. (Member-ID search only -- see this module's "
-        "docstring for the last-name path.)"
+        "Look up a bank member by member ID or by last name and return their "
+        "record and current savings balance. The search_field input selects "
+        "which mode; both are exercised by the compiled steps."
     ),
     app="acme-teller-console",
 
@@ -170,36 +199,33 @@ POLICY_SPEC = PolicySpec(
         "Wire transfer",
         "Close account",
     ],
-    # No extra allowlist routes: the last-name search path is deliberately
-    # NOT pre-authorized here. It shares the /search and /member/* routes the
-    # ID path already visited, so nothing extra is needed even once it is
-    # added -- but if it ever needed a new route, that route would be listed
-    # here with a justification, not wildcarded in.
-    extra_allowlist_routes=[],
+    # The last-name run reaches /member/<id> where <id> is the id its own
+    # search returned (M1004 this run), not an input value -- so it is not
+    # auto-generalized to /member/*. Authorize the family of member detail
+    # routes explicitly; replay must reach whichever member it looks up.
+    extra_allowlist_routes=["/member/*"],
     max_steps=20,
-    # The disc-20260909-182538 run captured the name field as "member_name".
-    # The capability contract (and schema/example_artifact.json) calls it
-    # "full_name". This is a rename of a label the policy author controls,
-    # not a claim about data the run did not prove. Every output the run
-    # produced must be listed here or compilation fails.
+    # disc-20260910-084016 captured the outputs under their contract names
+    # already ("full_name", "savings_balance"), so this is an identity map --
+    # but every produced output must still be listed or compilation fails.
     output_name_mapping={
-        "member_name": "full_name",
+        "full_name": "full_name",
         "savings_balance": "savings_balance",
     },
     known_gaps=[
-        "The 'search_field' radio (Member ID / Last name) was never clicked "
-        "during discovery -- 'Member ID' is pre-checked and was valid for the "
-        "M1001 lookup. This capability therefore searches by member ID only. A "
-        "two-mode capability needs either a second discovery run forcing the "
-        "'Last name' path, or a hand-authored 'choose_search_field' step "
-        "reviewed as a deliberate act. The compiler adds neither: it emits the "
-        "narrower single-mode capability. (Contrast schema/example_artifact.json, "
-        "which is hand-authored and does assert both modes.)",
+        "RESOLVED (was: the search_field radio was never exercised). "
+        "disc-20260910-084016 drives the 'Last name' radio for real, so the "
+        "compiled capability now has a mechanically-derived choose-search-field "
+        "step and a closed-enum search_field input covering both modes. Verified "
+        "by replaying the recompiled artifact against the live app with "
+        "search_field='Last name' and search_field='Member ID' -- see the "
+        "'What changed in this recompile' section of the *.notes.md sidecar "
+        "and BUILD_LOG.md.",
     ],
-    policy_authored_by="niramay (hand-authored policy for disc-20260909-182538)",
+    policy_authored_by="niramay (hand-authored policy for disc-20260910-084016)",
     notes=(
         "Expected outcomes verified against target_app during schema work. "
-        "search_field radio path not exercised by discovery; see module "
-        "docstring."
+        "search_field radio path now exercised by discovery "
+        "(disc-20260910-084016); supersedes the ID-only disc-20260909-182538."
     ),
 )
