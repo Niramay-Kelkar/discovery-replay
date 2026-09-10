@@ -1156,3 +1156,51 @@ Full suite: 44 passed (was 41). `member_lookup` has
 
 - `agent/replay.py`, `agent/replay_cli.py`, `agent/tests/test_replay.py`,
   this BUILD_LOG entry
+
+---
+
+## 2026-09-10 — Correct schema/DESIGN.md drift from the v1.1.0 artifact
+
+`schema/DESIGN.md` still described the schema as it stood when first
+written; several concrete examples no longer matched `agent/models.py`
+or `evidence/compiled/member_lookup.capability.json`.
+
+### Changed (`schema/DESIGN.md`)
+
+- §4 member-lookup inputs/outputs: was `search_field` (`member_id` |
+  `last_name`) and outputs `member_id, full_name, savings_balance,
+  date_of_birth, address, outcome_code`. Now the real set: `search_field`
+  with `allowed_values` `["Member ID", "Last name"]`, `search_term`;
+  outputs `full_name`, `savings_balance`, and `outcome_code`
+  (`required: false`, appended by the compiler).
+- §4 `InputParam` list now mentions `allowed_values`; `OutputParam` note
+  clarifies `outcome_code` is compiler-appended, not an `extract` target.
+- §8 top-level tree: `version` `1.0.0` → `1.1.0`; `target.app`
+  `cornerstone-teller-console` → `acme-teller-console`.
+- §2 locator example: replaced the invented
+  `name="Open detail for {{member_name}}, member {{member_id}}"` with the
+  artifact's real strategies (`role=rowheader name="Savings balance"`,
+  and the `"Open detail for"` substring match with `exact=false, nth=0`).
+- §3 `any_of` example aligned to the compiled checkpoint
+  (`role=rowheader name="Full name"`).
+- §5 `requires_confirmation`: corrected the "defaults true for mutating"
+  claim (the field defaults to `false`) and documented that replay now
+  enforces it via `--confirmed` (see the entry above).
+- §7 `allowlist_routes` example now includes `/member/M1004`, which the
+  compiler pins from the discovery trajectory.
+
+`schema_version` stays `"1.0"` (unchanged, matches the `Literal` in
+`models.py`). Left `schema/example_artifact.json` as-is: it is a separate
+hand-authored schema sample, still validates, and is not the compiled
+artifact DESIGN.md is being reconciled against.
+
+### Verified
+
+Re-read DESIGN.md against `member_lookup.capability.json`: app, version,
+schema_version, both inputs (+ allowed_values), all three outputs,
+allowlist routes, action types, and the three expected-outcome codes and
+their detection rules all agree. Full suite: 44 passed.
+
+### Committed
+
+- `schema/DESIGN.md`, this BUILD_LOG entry

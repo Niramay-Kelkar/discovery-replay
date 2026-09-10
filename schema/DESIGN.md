@@ -92,8 +92,10 @@ Rank by *how likely the strategy is to survive a legitimate, cosmetic
 change to the app that did not change what the operation means.*
 
 1. **`aria_role`** — accessibility role + accessible name (e.g.
-   `role=link, name="Open detail for {{member_name}}, member
-   {{member_id}}"`). This is the primary strategy for this project.
+   `role=rowheader, name="Savings balance"`, or a substring match like
+   `role=link, name="Open detail for" (exact=false, nth=0)` when the
+   full accessible name carries member-specific data not known before
+   the step runs). This is the primary strategy for this project.
    The target app's whole premise is a clean accessibility tree layered
    over deliberately hostile DOM: nested layout tables, generic class
    names (`div1`, `box2`), reflowing text nodes. Role+name is tied to
@@ -154,12 +156,12 @@ Checkpoint kinds:
 
 ### Why `any_of` is load-bearing
 
-The terminal step of the member-lookup flow — "open the member's detail
-page" — has this checkpoint:
+The step that opens the member's detail page has this checkpoint:
 
 ```
 any_of:
-  - element_visible: <the "Member record for …" table>
+  - element_visible: role=rowheader name="Full name"
+                     (a label on the "Member record for …" table)
   - outcome_matched:  (any recognized expected outcome)
 ```
 
@@ -187,11 +189,14 @@ fields get typed where; they supply named parameters and receive named
 values.
 
 - **`InputParam`** — `name`, `type`, `required`, `description`,
-  optional `example`. Steps reference inputs by name, and locator/value
-  templates interpolate them as `{{name}}`.
+  optional `example`, optional `allowed_values` (a closed set of
+  permitted values, when the input is an enum). Steps reference inputs
+  by name, and locator/value templates interpolate them as `{{name}}`.
 - **`OutputParam`** — `name`, `type`, `description`, `required`. An
   `extract` step names the output it populates. `required` outputs feed
-  the terminal `outputs_non_empty` checkpoint.
+  the terminal `outputs_non_empty` checkpoint. (`outcome_code` is
+  declared with `required: false` — it is appended by the compiler, not
+  produced by an `extract` step.)
 
 `type` is a small closed set: `string`, `integer`, `number`, `boolean`,
 `date`, `money`. `money` is called out separately from `number` because
@@ -200,11 +205,13 @@ know that is what they are getting.
 
 The member-lookup capability:
 
-- inputs: `search_field` (`"member_id"` | `"last_name"`),
-  `search_term` (string, required).
-- outputs: `member_id`, `full_name`, `savings_balance` (money),
-  `date_of_birth`, `address`, plus `outcome_code` (string — always
-  populated, `"SUCCESS"` on the happy path).
+- inputs: `search_field` (string, required — the accessible name of the
+  search-mode radio to select; `allowed_values` `["Member ID", "Last
+  name"]`), `search_term` (string, required).
+- outputs: `full_name` (string), `savings_balance` (money), plus
+  `outcome_code` (string, not required — appended by the compiler and
+  set by replay on every run: `"SUCCESS"` on the happy path, otherwise
+  the matched expected-outcome code).
 
 ---
 
@@ -215,8 +222,12 @@ The member-lookup capability:
 - **`risk_class`**: `read_only` | `mutating`. Member lookup is
   `read_only` — it reads records, changes nothing.
 - **`requires_confirmation`**: may replay run this unattended, or must a
-  human approve each run? Defaults to `false` for `read_only`, `true`
-  for `mutating`.
+  human approve each run? The field defaults to `false`; the policy
+  author is expected to set it `true` for any `mutating` capability.
+  Replay enforces it: if it is `true`, `agent.replay_cli` refuses to run
+  (a preflight hard failure, before any browser launches) unless
+  `--confirmed` was passed. Member lookup is `read_only` and leaves it
+  `false`.
 
 ### `EscalationPolicy`
 
@@ -301,7 +312,8 @@ trajectory actually used:
 
 - **`allowlist_routes`** — URL path patterns replay may navigate to or
   land on. Narrowed at compile time to the routes the successful run
-  visited (`/`, `/search`, `/member/*`) — **not** left at discovery's
+  visited (`/`, `/search`, `/member/*`, and the specific detail route
+  hit during discovery, `/member/M1004`) — **not** left at discovery's
   wide-open scope.
 - **`allowlist_action_types`** — the action verbs replay may perform.
   Must be a superset of every action the steps use. A `read_only`
@@ -345,10 +357,10 @@ No `scroll` (replay resolves elements by locator, not viewport), no
 Capability
 ├── schema_version            "1.0"
 ├── capability_id             "member_lookup"
-├── version                   "1.0.0"  (semver of this artifact)
+├── version                   "1.1.0"  (semver of this artifact)
 ├── description
 ├── target
-│   ├── app                   "cornerstone-teller-console"
+│   ├── app                   "acme-teller-console"
 │   ├── base_url
 │   └── entry_route           "/"
 │  ── mechanical layer ───────────────────────────────
