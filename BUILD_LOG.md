@@ -1287,3 +1287,9 @@ share its provenance.
 ### Committed
 
 - `schema/example_artifact.json`, this BUILD_LOG entry
+
+---
+
+## 2026-09-10 — REPORT.md §2 precision corrections
+
+Two wording fixes in the Artifact schema section caught on a self-review pass against the code (not new findings): `policy_authored_by` phrased so it no longer implies `compile.py` emits an artifact with it unset, and the empty-allowlist hard-fail described as "before any navigation or interaction" rather than "before touching the browser" (the browser is already launched inside `_drive` at that point). Committed: `REPORT.md`, this entry.
