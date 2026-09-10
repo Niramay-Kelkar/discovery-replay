@@ -1204,3 +1204,47 @@ their detection rules all agree. Full suite: 44 passed.
 ### Committed
 
 - `schema/DESIGN.md`, this BUILD_LOG entry
+
+---
+
+## 2026-09-10 — Write REPORT.md §2 "Artifact schema"
+
+Section 2 of REPORT.md was an empty stub. Filled it in with the schema
+write-up: the mechanical/policy split and its enforcement, the ranked
+locator list, why every checkpoint is `any_of[element_visible,
+outcome_matched]`, typed named inputs/outputs and template validation,
+guardrails and `requires_confirmation`, and the `schema_version` vs
+`version` distinction.
+
+### Changed (`REPORT.md`)
+
+- `## 2. Artifact schema`: six paragraphs plus a Mermaid flowchart
+  (Trajectory + PolicySpec → `compile_capability()` → Capability, and
+  the per-step ACT → SETTLE → CHECK path with ranked-locator fallback).
+  Diagram placed after the opening paragraph, before the locators
+  paragraph.
+
+### Verified
+
+Claims checked against `agent/models.py`, `agent/compile.py`,
+`agent/replay.py`, `agent/checkpoints.py`, `agent/outcome_detection.py`:
+`extra="forbid"` on `Capability`, `extra="allow"` on `LocatorStrategy`;
+`_Resolver` handles `aria_role`/`text_label`/`css`/`xpath` but not
+`test_id`; `detect_outcome` walks `expected_outcomes` in order;
+`ACCESS_DENIED` detection is `http_status 403`; `human_handoff_timeout`
+default 900s; `_steps_reference_declared_params` validates `{{token}}`
+references; `output_name_mapping` rejects unmapped outputs;
+`Guardrails.allowlist_routes` is required; `_preflight` enforces
+`policy_authored_by` and `requires_confirmation` + `--confirmed`;
+`schema_version` is a hard `Literal`; nothing reads `version`.
+
+One wording caveat left in as written: the prose says a compiler-only
+artifact has `policy_authored_by` empty, matching DESIGN.md §1's "emits
+empty policy stubs". The current `compile.py` actually requires
+`PolicySpec.policy_authored_by` and always sets it, so today the empty
+state only arises on a hand-edited or partial artifact. The replay-side
+refusal (`_preflight`) is real either way.
+
+### Committed
+
+- `REPORT.md`, this BUILD_LOG entry
