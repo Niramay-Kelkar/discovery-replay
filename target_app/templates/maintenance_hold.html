@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Account On Hold{% endblock %}
+{% block body %}
+
+<table role="presentation"><tr><td class="box4">
+<div role="alertdialog" aria-modal="true"
+     aria-label="Account maintenance hold"
+     aria-labelledby="mh-h" aria-describedby="mh-b">
+  <table class="t1" role="presentation">
+    <tr><td id="mh-h" class="c1">Account maintenance hold</td></tr>
+    <tr><td id="mh-b">
+      Member {{ member_id }}'s record is locked pending an overnight
+      maintenance batch. This screen is not part of the normal lookup
+      flow and clears once the batch completes.
+    </td></tr>
+    <tr><td>
+      <a href="/member/{{ member_id }}?ack=yes" role="button"
+         class="btn1" aria-label="Acknowledge hold and open record">Dismiss</a>
+      &nbsp;
+      <a href="/" role="button" class="btn1"
+         aria-label="Return to search">Back to search</a>
+    </td></tr>
+  </table>
+</div>
+</td></tr></table>
+
+{% endblock %}

@@ -6,10 +6,10 @@ Drops and recreates the members table every time so the demo target is
 always in a known state.
 
 Only genuine record facts live here. access_denied is a real column
-(an authorization business outcome). The slow-load delay and the
-confirmation interstitial are injected in app.py by member ID, not
-stored -- M1003 and M1006 are ordinary rows as far as the database is
-concerned.
+(an authorization business outcome). The slow-load delay, the
+confirmation interstitial and the account-maintenance hold are injected
+in app.py by member ID, not stored -- M1003, M1006 and M1007 are
+ordinary rows as far as the database is concerned.
 """
 import os
 import sqlite3
@@ -51,6 +51,14 @@ MEMBERS = [
      "58 Junction Road, Akron, OH 44301",
      "(330) 555-0110", "pat.ashwood@example.com",
      1200000, 0),
+
+    # Ordinary row. app.py injects an "account maintenance hold" screen for
+    # this ID -- a state deliberately outside every declared expected
+    # outcome, so replay has to escalate to a human rather than recognize it.
+    ("M1007", "Dana", "Whitfield", "1993-02-19",
+     "640 Ironwood Terrace, Toledo, OH 43604",
+     "(419) 555-0188", "dana.whitfield@example.com",
+     760514, 0),
 ]
 
 

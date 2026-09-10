@@ -44,14 +44,23 @@ error.
 | `M1003` | `Kim` | **Slow load.** Ordinary DB row; `M1003` is in `SLOW_LOAD_IDS` in `app.py`, so the detail page sleeps 4s before rendering, standing in for transient slowness. Search results are instant. | search `M1003` → View (wait ~4s) |
 | `M1004` | `Okafor` | Extra normal record (padding, and a second happy-path option). | search `M1004` / `Okafor` |
 | `M1005` | `Santos` | Extra normal record. | search `M1005` / `Santos` |
-| `M1006` | `Ashwood` | **Unexpected interstitial.** Ordinary DB row; `M1006` is in `INTERSTITIAL_IDS` in `app.py`, so `/member/M1006` shows a "Supervisor review required" confirmation dialog (`role="alertdialog"`) instead of the record. Clicking **Continue** (`/member/M1006?confirm=yes`) proceeds to the real detail page; **Cancel** returns to search. Stands in for an unrecognized runtime dialog a replay must detect and either handle or escalate on. | search `M1006` → View |
+| `M1006` | `Ashwood` | **Unexpected interstitial.** Ordinary DB row; `M1006` is in `INTERSTITIAL_IDS` in `app.py`, so `/member/M1006` shows a "Supervisor review required" confirmation dialog (`role="alertdialog"`) instead of the record. Clicking **Continue** (`/member/M1006?confirm=yes`) proceeds to the real detail page; **Cancel** returns to search. This one *is* a declared expected outcome (`SUPERVISOR_REVIEW_REQUIRED`): replay recognizes it and reports it, it does not escalate. | search `M1006` → View |
+| `M1007` | `Whitfield` | **Unrecognized blocking state → human escalation.** Ordinary DB row; `M1007` is in `MAINTENANCE_HOLD_IDS` in `app.py`, so `/member/M1007` shows an **"Account maintenance hold"** screen (`role="alertdialog"`, `aria-label="Account maintenance hold"`) instead of the record. Unlike every other non-happy case, this matches **none** of the declared `expected_outcomes` — different wording, an aria-label the PolicySpec has never seen — so replay cannot classify it and escalates to a human operator. Clicking **Dismiss** (`/member/M1007?ack=yes`) clears it to the real detail page (Dana Whitfield, balance $7,605.14); **Back to search** returns to `/`. | search `M1007` → View |
 
 **Why the split:** `access_denied` is a data-backed column because it is
 a genuine fact about the member's record — an authorization business
-outcome replay should report as such. The slow-load delay and the
-interstitial are *injected runtime conditions*, not record facts, so
-they are hardcoded ID sets checked in the route handler
-(`SLOW_LOAD_IDS`, `INTERSTITIAL_IDS`) rather than columns.
+outcome replay should report as such. The slow-load delay, the
+interstitial and the maintenance hold are *injected runtime conditions*,
+not record facts, so they are hardcoded ID sets checked in the route
+handler (`SLOW_LOAD_IDS`, `INTERSTITIAL_IDS`, `MAINTENANCE_HOLD_IDS`)
+rather than columns.
+
+**Recognized vs. unrecognized non-happy states:** access-denied,
+not-found and the supervisor-review interstitial are all things the
+capability's PolicySpec declares and detects — replay returns them as
+business outcomes. The `M1007` maintenance hold is the deliberate
+counter-case: nothing in `expected_outcomes` matches it, so it is what
+actually exercises the escalation / human-handoff path.
 
 ### Not-found behavior (verify, not seeded)
 
@@ -99,6 +108,13 @@ names (verified against the Chrome accessibility tree while building):
 - `alertdialog` containing `button` name **"Continue to member
   record"** (href `…?confirm=yes`) and `button` name **"Cancel and
   return to search"** (href `/`).
+
+**Maintenance hold (`/member/M1007`)**
+- `alertdialog` name **"Account maintenance hold"** containing `button`
+  name **"Acknowledge hold and open record"** (href `…?ack=yes`) and
+  `button` name **"Return to search"** (href `/`). Wording and label are
+  deliberately unlike the interstitial's so no `expected_outcome`
+  detection rule matches it.
 
 **Every page**
 - An `iframe` titled **"Branch bulletin board"** is present and
