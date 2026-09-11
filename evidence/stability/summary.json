@@ -1,0 +1,26 @@
+{
+  "capability_id": "member_lookup",
+  "capability_version": "1.1.0",
+  "inputs": {
+    "search_field": "Member ID",
+    "search_term": "M1001"
+  },
+  "n": 5,
+  "success_rate": 1.0,
+  "status_counts": {
+    "success": 5
+  },
+  "failure_determinism": "n/a",
+  "duration_s": {
+    "min": 2.947,
+    "max": 3.508,
+    "mean": 3.195
+  },
+  "run_ids": [
+    "replay-20260911-065607-r0",
+    "replay-20260911-065610-r1",
+    "replay-20260911-065613-r2",
+    "replay-20260911-065616-r3",
+    "replay-20260911-065619-r4"
+  ]
+}
