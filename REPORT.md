@@ -127,6 +127,123 @@ Timeouts apply at several independent layers rather than one global clock: a per
 
 ## 4. Heterogeneity & multi-tenant
 
+This section is design, not build, per the brief's own scope. Where
+something below is already true of the code, it's marked as such; the
+rest is a credible extension of decisions already made, not a promise of
+what exists.
+
+The seam between perception and the recorded flow is real but informal,
+not a clean interface. There's no Surface protocol; perception.py and
+the resolver inside replay.py import Playwright's Page/Locator directly.
+What is surface-neutral is the artifact's vocabulary: a locator's kind
+is an open string, not an enum, and the model accepts extra fields, so a
+new locator strategy validates today with zero schema change. Role-and-
+name matching itself isn't a browser concept, it's an accessibility-tree
+concept, and that's what makes the rest of this section possible at all.
+The honest split: adding a new browser resolution strategy is
+low-friction; swapping in a non-browser perception backend, an OS
+accessibility API for a desktop app, would need a real protocol
+extracted from the current concrete class first. The data model would
+mostly survive that refactor; the code doesn't have the seam pre-built.
+
+```mermaid
+flowchart TB
+    subgraph Today["Built today"]
+        LS["LocatorStrategy: kind (open string),<br/>extra fields allowed"]
+        AR["aria_role: role + name + exact<br/>— maps directly onto ARIA"]
+    end
+    subgraph Legacy["Frameset / iframe web app (design)"]
+        FR["+ frame coordinate on LocatorStrategy<br/>(non-breaking, additive)"]
+        WI["wire up 'within' field<br/>(declared today, read by nothing)"]
+    end
+    subgraph Desktop["Native desktop app (design)"]
+        UIA["role/name → OS accessibility API<br/>(Windows UIA / macOS AX / Linux AT-SPI2)"]
+        NAV["navigate → launch + activate window<br/>(URL-addressing assumption doesn't carry over)"]
+    end
+    LS --> AR
+    AR -.->|"role+name concept ports,<br/>resolver code doesn't"| FR
+    AR -.->|"role+name concept ports,<br/>resolver code doesn't"| UIA
+    FR --> WI
+    UIA --> NAV
+```
+
+A legacy frameset app is the closer extension. target_app already has
+one unrelated iframe, and checking against it confirms Playwright's
+accessibility snapshot doesn't pierce frame boundaries, elements inside
+a child frame would currently resolve to zero matches, indistinguishable
+from "the element doesn't exist" rather than "the surface isn't
+supported yet." That's a real gap, not a hypothetical one. The fix is
+additive rather than architectural: a frame coordinate on
+LocatorStrategy (free, given the schema already allows extra fields),
+frame-aware resolution in the perception and resolver layers, and
+finally wiring up the within field, which is declared in the schema
+today but read by nothing. None of this touches the step model, the
+checkpoint composites, the outcome taxonomy, or the mechanical/policy
+split.
+
+A native desktop app is a bigger lift, but the project's central bet,
+reason over an accessibility tree rather than pixels or raw markup, is
+exactly what makes it tractable at all. The artifact schema, the
+escalation state machine, the three-way result taxonomy, and the
+ACT/SETTLE/CHECK contract are surface-neutral and would carry over with
+mostly additive field changes. What needs a parallel build is
+everything below that: perception itself, the resolver, and specifically
+the navigation model, since navigate/base_url/route-allowlisting all
+assume URL addressing, which a desktop app simply doesn't have. The
+operator-handoff mechanism is the sharpest edge: the current CDP attach
+works because Chrome happens to expose a remarkably convenient
+remote-control primitive. A desktop equivalent, screen-sharing or an
+accessibility-driver attach, is a genuinely harder problem, not a
+drop-in swap.
+
+Multi-tenant reuse is where the design already earns something real: a
+compiled capability's base_url is overridable at replay time with no
+recompilation, so pointing the same artifact at a second tenant's host
+works today. Locators built from accessible role and name, rather than
+CSS selectors or DOM structure, survive exactly the kind of change
+branding usually makes, colors, logos, fonts, layout, because none of
+that touches ARIA roles or a control's functional label. That's genuine
+portability against theming, not an optimistic claim. It has a real
+limit, though: if a tenant customizes the label itself, "Savings
+Balance" instead of "Savings balance", both the primary and fallback
+locator break together, since both are built from the same literal text.
+A structural locator strategy — css or xpath — is reserved in the schema
+as a last-resort fallback but never emitted by the compiler today, which
+is the natural next step if aggressive per-tenant customization becomes
+a real problem rather than a theoretical one.
+
+The credible design for reuse without re-recording per tenant is a small
+override layer merged over a base capability: a per-tenant document
+carrying only the deltas, base_url, any customized labels, any
+tenant-specific outcome text, rather than a full re-record. Because the
+schema already tolerates extra fields, this kind of layering doesn't
+require a migration to add. Drift detection across tenants running
+different versions of the same vendor product doesn't exist today, and
+that's worth stating as plainly here as in the determinism section, but
+there's a concrete, already-present hook worth building on rather than
+starting cold: discovery already stores a structural fingerprint of each
+step's page, unused by anything right now. A pre-flight compatibility
+probe, resolving every step's locator against a new tenant without
+acting on anything, is a natural dry-run mode for the resolver that
+already exists, and comparing that fingerprint across tenants would flag
+a materially different vendor-product version before a real run ever
+touches it.
+
+Whether the mechanical/policy split itself helps or hurts multi-tenant
+reuse is a genuine mixed answer, not a self-serving one. It helps in the
+place that matters most: the policy layer, is this read-only, is this
+outcome a business result rather than a failure, how risky is this, is
+judgment that's true for every tenant on the same vendor product, and
+it's written once rather than re-derived per tenant. It doesn't, by
+itself, solve tenant parameterization; routes and labels still live in
+the mechanical layer and still need the override mechanism described
+above. And one deliberate choice cuts the other way: guardrail routes
+are narrowed to exactly the paths one trajectory visited, which is the
+right call for single-tenant blast-radius control but bakes in one
+tenant's URL structure as a hard constraint. Extending that to
+pattern-based or per-tenant routes is a real trade-off against tightened
+safety, not a free improvement.
+
 ## 5. Escalation & handoff
 
 ## 6. Safety

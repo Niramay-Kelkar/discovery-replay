@@ -1356,3 +1356,62 @@ literal constant like `fill`'s 4000ms.
 ## 2026-09-10 — REPORT.md §3 precision corrections
 
 Two wording fixes in the Determinism & error handling section caught on a self-review pass against the code (not new findings): added the diagram edge for a matched outcome classified `hard_failure` routing to `HardFailure` (`known_hard_failure_outcome`, replay.py:817), so the chart is generally correct rather than only accidentally correct for `member_lookup`'s all-`business_outcome` outcomes; and reworded "fixed per-action timeouts" to spell out that a navigating click's timeout is `max(4s, step settle bound)`, not a uniform constant. Committed: `REPORT.md`, this entry.
+
+---
+
+## 2026-09-10 — REPORT.md §4 Heterogeneity & multi-tenant
+
+Wrote the section, which was an empty placeholder. Design-only per the
+brief's scope, so the prose is explicit throughout about what's built
+versus what's a credible extension. A Mermaid flowchart sits between the
+opening seam paragraph and the frameset discussion, showing the one
+thing that's genuinely built today (open-string locator `kind`,
+`aria_role` role+name) branching into the two extension paths — a
+frameset/iframe web app (additive frame coordinate, wiring up `within`)
+and a native desktop app (role/name onto an OS accessibility API,
+`navigate` becoming launch-and-activate).
+
+### Checked against code before committing
+
+- Seam: no Surface protocol exists; `perception.py:22` and
+  `replay.py:58` import Playwright `Page`/`Locator` directly. Locator
+  `kind` is `str` not an enum (`models.py:89`) and `LocatorStrategy`
+  is `extra="allow"` (`models.py:87`) — a new strategy validates with
+  no schema change.
+- Frameset: `Perception.snapshot()` is `page.locator("body")
+  .aria_snapshot()` (`perception.py:71-73`), main-frame only;
+  `Perception.resolve` / `_Resolver` use `page.get_by_role` scoped to
+  the main frame. The target app's iframe is `src="about:blank"`
+  (`target_app/templates/base.html:72-74`) so nothing is lost today,
+  but real frame content would resolve to zero matches.
+- `within` is declared on `LocatorStrategy` (`models.py:104`) and read
+  by nothing (`grep` in `agent/` finds only doc-string mentions).
+- `base_url` override: `--base-url` in `replay_cli.py:50`, applied at
+  `replay.py:295` as `(base_url or capability.target.base_url)` — CLI
+  value wins, no recompile.
+- Structural locator reserved-not-emitted: `models.py` docstring lists
+  `css`/`xpath` as "reserved, last resort"; `compile.py` only ever
+  emits rank-1 `aria_role` and (for extracts) rank-2 `text_label`
+  (`compile.py:365-378`, `442-446`).
+- Drift-detection hook: `snapshot_sha1` is written at
+  `discovery_tools.py:361` and read by nothing.
+- CDP handoff primitive: `--cdp-port` in `replay_cli.py:69-71`.
+
+### Wording-precision fixes made to the supplied draft (not claim changes)
+
+- "carry over with only additive field changes" → "mostly additive":
+  a desktop port also has to widen `Literal` members
+  (`ResolvedLocator.strategy`, `ActionType`), which isn't purely
+  additive.
+- "a structural locator strategy is reserved in the schema as a third
+  fallback rank" → "a structural locator strategy — css or xpath — is
+  reserved in the schema as a last-resort fallback": the schema
+  reserves the `css`/`xpath` kinds, it doesn't assign them a rank
+  (ranks are per-step, assigned 1..N by the compiler).
+- "diffing that fingerprint per tenant" → "comparing that fingerprint
+  across tenants": `snapshot_sha1` is a hash, compared for equality,
+  not diffed.
+
+### Committed
+
+- `REPORT.md`, this entry
