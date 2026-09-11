@@ -1,0 +1,18 @@
+$ curl -s -X POST http://127.0.0.1:5003/capabilities/member_lookup/invoke \
+    -H "Content-Type: application/json" \
+    -d '{"search_field": "Member ID", "search_term": "M1001"}' \
+    -w "\nHTTP %{http_code}\n"
+
+{"capability_id":"member_lookup","duration_s":5.21,"evidence_path":"evidence/replays/replay-20260910-230139/replay.jsonl","outputs":{"full_name":"A…n (len 12)","outcome_code":"SUCCESS","savings_balance":"$…2 (len 10)"},"run_id":"replay-20260910-230139","status":"success","steps_executed":7}
+
+HTTP 200
+
+# Extracted values above are redacted to the same masked, length-bearing
+# form replay.jsonl already uses (see agent.replay.redact) before being
+# committed here -- the live response the caller actually received
+# carries the real values ("Alice Nguyen", "$18,750.42"); this file is
+# curated evidence, not the wire response.
+#
+# evidence_path is repo-relative here; the live response carries an
+# absolute path under the machine that ran it, sanitized for the same
+# reason evidence/README.md already documents for replay logs.

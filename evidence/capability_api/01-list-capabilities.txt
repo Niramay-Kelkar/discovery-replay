@@ -1,0 +1,5 @@
+$ curl -s http://127.0.0.1:5003/capabilities -w "\nHTTP %{http_code}\n"
+
+[{"capability_id":"member_lookup","description":"Look up a bank member by member ID or by last name and return their record and current savings balance. The search_field input selects which mode; both are exercised by the compiled steps.","inputs":[{"allowed_values":["Member ID","Last name"],"description":"Which field to search on -- the accessible name of the search-field radio to select before searching.","name":"search_field","required":true,"type":"string"},{"description":"The member ID or last name to look up, matching the search_field selection.","name":"search_term","required":true,"type":"string"}],"outputs":[{"description":"Full name from the member record.","name":"full_name","required":true,"type":"string"},{"description":"Savings balance from the member record.","name":"savings_balance","required":true,"type":"money"},{"description":"Set by replay on every run: 'SUCCESS' on the happy path, otherwise the matched expected-outcome code.","name":"outcome_code","required":false,"type":"string"}],"requires_confirmation":false,"risk_class":"read_only","version":"1.1.0"}]
+
+HTTP 200

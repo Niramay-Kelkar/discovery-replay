@@ -1,0 +1,13 @@
+$ curl -s -X POST http://127.0.0.1:5003/capabilities/member_lookup/invoke \
+    -H "Content-Type: application/json" \
+    -d '{"search_field": "Member ID", "search_term": "M1002"}' \
+    -w "\nHTTP %{http_code}\n"
+
+{"capability_id":"member_lookup","classification":"business_outcome","description":"The teller profile is not authorized to view this member's record.","detected_at_step":"click_open_detail_for","duration_s":3.663,"evidence_path":"evidence/replays/replay-20260910-230148/replay.jsonl","outcome_code":"ACCESS_DENIED","outputs":{"outcome_code":"ACCESS_DENIED"},"run_id":"replay-20260910-230148","status":"business_outcome","steps_executed":5}
+
+HTTP 200
+
+# M1002 has access_denied=1 in target_app/seed.py; no member PII is
+# extracted on this path (outputs carries only outcome_code), so no
+# redaction was needed here beyond the evidence_path sanitization noted
+# in 02-invoke-success.txt.
