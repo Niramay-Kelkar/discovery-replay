@@ -453,6 +453,7 @@ class Replayer:
                     "act", "on_hard_failure", f.expected, f.observed,
                 )
                 if disp == "result":
+                    assert res is not None, "disp=='result' always pairs with a ReplayResult"
                     return res
                 # resume: the operator completed the action on the live
                 # session. Replay does NOT re-run ACT -- it re-enters
@@ -468,6 +469,7 @@ class Replayer:
                     step, page, perception, resolver, inputs, t_step
                 )
                 if disp == "result":
+                    assert res is not None, "disp=='result' always pairs with a ReplayResult"
                     return res
                 continue
 
@@ -502,6 +504,7 @@ class Replayer:
                 step, page, perception, resolver, inputs, t_step
             )
             if disp == "result":
+                assert res is not None, "disp=='result' always pairs with a ReplayResult"
                 return res
             # disp == "proceed" -> next step
 
@@ -576,6 +579,7 @@ class Replayer:
                     f"a readable value at {used}",
                     "element resolved but held no readable text",
                 )
+            assert step.output_name is not None, "Step validates output_name is set when action=='extract'"
             self.extracted[step.output_name] = value
             self.ev.write("extract", ordinal=step.ordinal,
                           output_name=step.output_name, value=redact(value))
@@ -711,7 +715,7 @@ class Replayer:
             for pat in self.cap.guardrails.allowlist_routes
         )
 
-    def _post_nav_guard(self, page: Page, step: Step) -> ReplayResult | None:
+    def _post_nav_guard(self, page: Page, step: Step) -> HardFailure | None:
         parts = urlsplit(page.url)
         base = urlsplit(self.base_url)
         gr = self.cap.guardrails

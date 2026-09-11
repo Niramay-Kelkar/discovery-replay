@@ -114,7 +114,8 @@ class SessionStore:
                  phase, expected, observed, screenshot_path, _now_iso(),
                  handoff_deadline_at),
             )
-            return int(cur.lastrowid)
+            assert cur.lastrowid is not None, "lastrowid is only None before an INSERT executes"
+            return cur.lastrowid
 
     def mark_timed_out(self, escalation_id: int) -> None:
         with self._conn() as c:

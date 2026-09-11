@@ -60,7 +60,7 @@ def _element_visible(cp: Checkpoint, env: CheckEnv) -> bool:
 
 @_handler("text_present")
 def _text_present(cp: Checkpoint, env: CheckEnv) -> bool:
-    ok = bool(cp.text) and cp.text.lower() in env.page_text.lower()
+    ok = bool(cp.text) and (cp.text or "").lower() in env.page_text.lower()
     env.trace.append(f"text_present({cp.text!r})={ok}")
     return ok
 

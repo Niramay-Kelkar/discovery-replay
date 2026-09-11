@@ -42,6 +42,7 @@ What *is* mechanical, and is compiled straight from the trajectory:
 from __future__ import annotations
 
 import re
+from typing import Any
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -363,7 +364,7 @@ def _compile_action_step(
         raw.update(_compile_extract(ts, output_name_mapping, notes))
     else:
         name, exact, gnote = _generalize_name(resolved.name, bindings, captured_values)
-        loc_kwargs = {
+        loc_kwargs: dict[str, Any] = {
             "kind": "aria_role", "rank": 1, "role": resolved.role,
             "name": name, "exact": exact,
         }
@@ -629,6 +630,7 @@ def compile_capability(
         if ts.tool != "extract":
             continue
         ex = ts.extraction
+        assert ex is not None, "action_steps is filtered to status=='ok'; an ok extract always sets extraction"
         outputs.append(OutputParam(
             name=mapping[ex.output_name],
             type=_infer_type(ex.value),
