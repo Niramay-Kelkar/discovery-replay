@@ -16,7 +16,7 @@ def _open(store, **over):
         "run_id": "replay-x", "capability_id": "member_lookup", "step_id": "click_open",
         "step_ordinal": 4, "trigger": "on_unrecognized_dialog", "phase": "check",
         "expected": "record table visible", "observed": "unrecognized alertdialog",
-        "screenshot_path": "/tmp/x.png",
+        "screenshot_path": "/tmp/x.png",  # nosec B108  # test-only placeholder path, never opened
     }
     kw.update(over)
     return store.open_escalation(**kw)

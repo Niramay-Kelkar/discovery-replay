@@ -105,7 +105,7 @@ def test_fill_template_substitutes_named_inputs():
 # --- guardrails --------------------------------------------------------
 
 def test_route_allowlist_matches_globs_not_arbitrary_paths():
-    r = Replayer(_cap(), evidence_root="/tmp/replay-test-ev")
+    r = Replayer(_cap(), evidence_root="/tmp/replay-test-ev")  # nosec B108  # test-only scratch dir, not a real temp-file race
     assert r._route_allowed("/")
     assert r._route_allowed("/search")
     assert r._route_allowed("/member/M1001")
@@ -116,14 +116,14 @@ def test_route_allowlist_matches_globs_not_arbitrary_paths():
 
 def test_preflight_refuses_unauthored_policy():
     cap = _cap().model_copy(update={"policy_authored_by": None})
-    r = Replayer(cap, evidence_root="/tmp/replay-test-ev")
+    r = Replayer(cap, evidence_root="/tmp/replay-test-ev")  # nosec B108  # test-only scratch dir, not a real temp-file race
     res = r.run({"search_term": "M1001"})
     assert isinstance(res, HardFailure)
     assert res.trigger == "policy_unauthored"
 
 
 def test_preflight_requires_declared_inputs():
-    r = Replayer(_cap(), evidence_root="/tmp/replay-test-ev")
+    r = Replayer(_cap(), evidence_root="/tmp/replay-test-ev")  # nosec B108  # test-only scratch dir, not a real temp-file race
     res = r.run({})
     assert isinstance(res, HardFailure)
     assert res.trigger == "missing_input"
@@ -134,14 +134,14 @@ def test_preflight_gates_a_capability_that_requires_confirmation():
     inputs = {"search_field": "Member ID", "search_term": "M1001"}
 
     # without --confirmed: hard-fail in preflight, no browser launched
-    res = Replayer(cap, evidence_root="/tmp/replay-test-ev").run(inputs)
+    res = Replayer(cap, evidence_root="/tmp/replay-test-ev").run(inputs)  # nosec B108  # test-only scratch dir, not a real temp-file race
     assert isinstance(res, HardFailure)
     assert res.trigger == "confirmation_required"
     assert res.phase == "preflight"
     assert cap.capability_id in res.observed
 
     # with confirmed=True: preflight passes (returns None, run proceeds past it)
-    r = Replayer(cap, confirmed=True, evidence_root="/tmp/replay-test-ev")
+    r = Replayer(cap, confirmed=True, evidence_root="/tmp/replay-test-ev")  # nosec B108  # test-only scratch dir, not a real temp-file race
     assert r._preflight(inputs) is None
 
 
@@ -149,9 +149,9 @@ def test_preflight_unaffected_when_confirmation_not_required():
     cap = _cap()  # member_lookup: requires_confirmation is False
     assert cap.requires_confirmation is False
     inputs = {"search_field": "Member ID", "search_term": "M1001"}
-    assert Replayer(cap, evidence_root="/tmp/replay-test-ev")._preflight(inputs) is None
+    assert Replayer(cap, evidence_root="/tmp/replay-test-ev")._preflight(inputs) is None  # nosec B108  # test-only scratch dir, not a real temp-file race
     assert Replayer(cap, confirmed=True,
-                    evidence_root="/tmp/replay-test-ev")._preflight(inputs) is None
+                    evidence_root="/tmp/replay-test-ev")._preflight(inputs) is None  # nosec B108  # test-only scratch dir, not a real temp-file race
 
 
 # --- result contract is four distinct structural types -------------------

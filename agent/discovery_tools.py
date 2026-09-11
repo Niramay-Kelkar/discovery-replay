@@ -359,7 +359,9 @@ class ToolExecutor:
             navigated_to=navigated_to,
             page_url=self.page.url,
             screenshot_path=shot,
-            snapshot_sha1=hashlib.sha1(snapshot_seen.encode()).hexdigest(),
+            snapshot_sha1=hashlib.sha1(
+                snapshot_seen.encode(), usedforsecurity=False
+            ).hexdigest(),
             started_at=started,
             duration_ms=int((time.time() - t0) * 1000),
         )
