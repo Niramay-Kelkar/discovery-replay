@@ -1,0 +1,30 @@
+=== attempt 1: no --confirmed ===
+{
+  "status": "hard_failure",
+  "capability_id": "member_lookup",
+  "run_id": "replay-20260911-075257",
+  "steps_executed": 0,
+  "duration_s": 0.0,
+  "evidence_path": "evidence/risk_gating/_raw/replay-20260911-075257/replay.jsonl",
+  "at_step_id": "",
+  "at_step_ordinal": 0,
+  "phase": "preflight",
+  "trigger": "confirmation_required",
+  "expected": "explicit operator confirmation (--confirmed) before running capability 'member_lookup'",
+  "observed": "capability 'member_lookup' declares requires_confirmation=true and no --confirmed flag was passed; refusing to run unattended (no browser launched)"
+}
+
+=== attempt 2: --confirmed ===
+{
+  "status": "success",
+  "capability_id": "member_lookup",
+  "run_id": "replay-20260911-075257",
+  "steps_executed": 7,
+  "duration_s": 3.785,
+  "evidence_path": "evidence/risk_gating/_raw/replay-20260911-075257/replay.jsonl",
+  "outputs": {
+    "full_name": "Alice Nguyen",
+    "savings_balance": "$18,750.42",
+    "outcome_code": "SUCCESS"
+  }
+}
