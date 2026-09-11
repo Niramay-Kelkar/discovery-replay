@@ -274,6 +274,15 @@ class _Resolver:
             return bool(self.resolve(loc).is_visible())
         except PlaywrightError:
             return False
+        except ResolutionError as e:
+            # count == 0 means the resolver confirmed zero matches -- a
+            # genuine "not visible." Anything else (ambiguous multi-match,
+            # or the unsupported-locator-kind catch-all in resolve()) is a
+            # real problem with the checkpoint's locator, not absence, and
+            # must keep propagating rather than silently reading as False.
+            if e.count == 0:
+                return False
+            raise
 
 
 # ---------------------------------------------------------------------------

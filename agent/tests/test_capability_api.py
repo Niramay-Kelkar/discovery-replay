@@ -151,3 +151,24 @@ def test_invoke_real_capability_against_live_target_app_returns_success(
     assert body["status"] == "success"
     assert body["outputs"]["full_name"]
     assert body["outputs"]["outcome_code"] == "SUCCESS"
+
+
+def test_invoke_access_denied_member_returns_business_outcome(
+    client, live_target_app
+):
+    """M1002 has access_denied=1 -- the detail page never renders, so the
+    step checkpoint's element_visible check resolves its locator to zero
+    matches. Regression for a bug where that zero-match ResolutionError
+    escaped agent.replay._Resolver.visible() uncaught (it only handled
+    PlaywrightError), crashing the run as an unclassified hard_failure
+    instead of surfacing the ACCESS_DENIED business outcome that outcome
+    detection had already matched.
+    """
+    resp = client.post(
+        "/capabilities/member_lookup/invoke",
+        json={"search_field": "Member ID", "search_term": "M1002"},
+    )
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["status"] == "business_outcome"
+    assert body["outcome_code"] == "ACCESS_DENIED"
