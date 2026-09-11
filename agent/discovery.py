@@ -23,12 +23,14 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 import anthropic
+from anthropic.types import MessageParam, ToolChoiceAnyParam, ToolParam
 from playwright.sync_api import sync_playwright
 
 from agent.discovery_tools import TOOLS, DoneSignal, ToolExecutor
-from agent.trajectory import Trajectory
+from agent.trajectory import Trajectory, TrajectoryOutcome
 
 DEFAULT_MODEL = "claude-sonnet-4-6"  # this project's current Claude Sonnet
 DEFAULT_MAX_STEPS = 20
@@ -180,7 +182,7 @@ class DiscoveryAgent:
     def _drive(self, page, executor: ToolExecutor, traj: Trajectory) -> None:
         deadline = time.time() + self.cfg.timeout_s
         snapshot = executor.perception.snapshot()
-        messages = [{
+        messages: list[dict[str, Any]] = [{
             "role": "user",
             "content": (
                 f"GOAL: {self.cfg.goal}\n\n"
@@ -199,9 +201,17 @@ class DiscoveryAgent:
                 model=self.cfg.model,
                 max_tokens=MAX_TOKENS,
                 system=SYSTEM_PROMPT,
-                tools=TOOLS,
-                tool_choice={"type": "any", "disable_parallel_tool_use": True},
-                messages=messages,
+                # TOOLS, tool_choice, and messages are all built from plain
+                # dicts (TOOLS as a module constant, tool_choice inline,
+                # messages incrementally turn by turn) rather than the SDK's
+                # TypedDict param classes; the runtime shape matches what
+                # each cast claims, mypy just can't verify it structurally.
+                tools=cast(list[ToolParam], TOOLS),
+                tool_choice=cast(
+                    ToolChoiceAnyParam,
+                    {"type": "any", "disable_parallel_tool_use": True},
+                ),
+                messages=cast(list[MessageParam], messages),
             )
             self._log("llm_response", stop_reason=resp.stop_reason,
                       usage={"in": resp.usage.input_tokens, "out": resp.usage.output_tokens})
@@ -213,9 +223,11 @@ class DiscoveryAgent:
                 raise _Stop("error", "model returned no tool call despite forced tool use")
             tu = tool_uses[0]
 
-            # "why" is a required field on every tool; fall back to any
-            # free text the model emitted alongside the call.
-            rationale = (tu.input.get("why")
+            # "why" is a required field on every tool (str, per the tool's
+            # own JSON schema); fall back to any free text the model
+            # emitted alongside the call.
+            why = cast("str | None", tu.input.get("why"))
+            rationale = (why
                          or " ".join(t.strip() for t in text_parts).strip()
                          or None)
 
@@ -238,7 +250,7 @@ class DiscoveryAgent:
 
 
 class _Stop(Exception):
-    def __init__(self, outcome: str, detail: str):
+    def __init__(self, outcome: TrajectoryOutcome, detail: str):
         self.outcome = outcome
         self.detail = detail
 

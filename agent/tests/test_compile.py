@@ -6,6 +6,7 @@ couple of hand-built ones for the failure paths.
 """
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -30,7 +31,7 @@ def _real_trajectory() -> Trajectory:
 
 
 def _minimal_policy(**overrides) -> PolicySpec:
-    base = {
+    base: dict[str, Any] = {
         "capability_id": "c",
         "version": "1.0.0",
         "description": "d",

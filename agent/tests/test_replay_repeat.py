@@ -4,10 +4,14 @@ These exercise ``_aggregate_stability`` directly against constructed
 ``ReplayResult`` objects -- no browser, no N real replay runs needed to
 test the aggregation math itself.
 """
+from typing import Any
+
 from agent.replay import BusinessOutcome, HardFailure, PendingEscalation, Success
 from agent.replay_cli import _aggregate_stability
 
-_BASE = {"capability_id": "member_lookup", "steps_executed": 7, "evidence_path": "x"}
+_BASE: dict[str, Any] = {
+    "capability_id": "member_lookup", "steps_executed": 7, "evidence_path": "x",
+}
 
 
 def _success(run_id: str, duration_s: float) -> dict:
