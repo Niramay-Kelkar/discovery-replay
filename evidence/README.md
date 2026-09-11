@@ -183,8 +183,8 @@ before commit:
   data (`example.com` email, `555` phone) and is the same data already
   present in `target_app/seed.py` and `VERIFICATION.md`. The operator
   console screenshot in `03-escalation-handoff/` additionally shows the
-  operator name typed into the console's own form (`niramay`, this
-  author, not a customer identifier).
+  operator name typed into the console's own form (`operator1`, a
+  fictional role-based name, not a customer identifier).
 - **Discovery trajectory** — `discovery/` deliberately keeps the sample
   values it captured, matching `compiled/member_lookup.capability.notes.md`,
   which is already committed and cites the same values. The redaction

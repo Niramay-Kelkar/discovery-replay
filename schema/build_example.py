@@ -371,7 +371,7 @@ def build() -> Capability:
             ),
             completed_at="2026-09-09T15:20:00Z",
         ),
-        policy_authored_by="niramay (hand-authored example)",
+        policy_authored_by="policy_team (hand-authored example)",
     )
 
 

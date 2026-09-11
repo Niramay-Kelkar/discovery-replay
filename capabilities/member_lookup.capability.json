@@ -450,5 +450,5 @@
     "goal": "In the member search screen, switch the search field to last name by clicking the 'Last name' radio button (do not use the default 'Member ID' option), then search for the member with last name Okafor, open their record, and read their full name and current savings balance.",
     "completed_at": "2026-09-10T15:40:38.165258+00:00"
   },
-  "policy_authored_by": "niramay (hand-authored policy for disc-20260910-084016)"
+  "policy_authored_by": "policy_team (hand-authored policy for disc-20260910-084016)"
 }

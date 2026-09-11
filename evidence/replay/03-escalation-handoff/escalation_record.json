@@ -13,7 +13,7 @@
   "status": "resumed",
   "created_at": "2026-09-10T16:19:12.878350+00:00",
   "resumed_at": "2026-09-10T16:20:35.006528+00:00",
-  "resumed_by": "niramay",
+  "resumed_by": "operator1",
   "operator_note": "attached over CDP, acknowledged the maintenance hold, record now renders",
   "handoff_deadline_at": "2026-09-10T16:23:12.877170+00:00"
 }

@@ -398,7 +398,7 @@ name or `?ack=yes` behaviour changed).
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:5002/resume/1 \
-  -d 'operator=niramay' \
+  -d 'operator=operator1' \
   -d 'note=attached over CDP, acknowledged the maintenance hold, record now renders'
 ```
 

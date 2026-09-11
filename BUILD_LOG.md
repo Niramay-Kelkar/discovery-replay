@@ -826,7 +826,7 @@ then ran replay **headed** with `--cdp-port 9222 --handoff-timeout 240`:
   (`connect_over_cdp("http://localhost:9222")`), found the exact tab
   replay was blocked on (`/member/M1007`), read the dialog, clicked
   **Dismiss** → the real record rendered. Then clicked **Resume** in the
-  console (`operator=niramay`, with a note).
+  console (`operator=operator1`, with a note).
 - Replay's next poll saw `resumed`, wrote `human_intervention`
   (`human_intervened: true`, operator + note + `paused_seconds`), and
   `resume` (`"ACT is not re-invoked"`). It re-ran SETTLE/CHECK for step 4

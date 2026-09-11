@@ -222,7 +222,7 @@ POLICY_SPEC = PolicySpec(
         "'What changed in this recompile' section of the *.notes.md sidecar "
         "and BUILD_LOG.md.",
     ],
-    policy_authored_by="niramay (hand-authored policy for disc-20260910-084016)",
+    policy_authored_by="policy_team (hand-authored policy for disc-20260910-084016)",
     notes=(
         "Expected outcomes verified against target_app during schema work. "
         "search_field radio path now exercised by discovery "
