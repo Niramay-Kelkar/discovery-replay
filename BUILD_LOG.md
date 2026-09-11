@@ -1620,3 +1620,83 @@ sections elsewhere in the report.
 ### Committed
 
 - `REPORT.md`, this entry
+
+---
+
+## 2026-09-11 — Agent-facing capability interface (`agent/capability_api.py`)
+
+### Built
+
+Section 8 stretch goal: a thin HTTP layer over the existing replay
+engine so an AI agent can discover capabilities by name and invoke them
+with typed args, rather than driving `replay_cli.py` directly.
+
+- `capabilities/` — new top-level directory (peer of `agent/`,
+  `evidence/`, `schema/`, `target_app/`), holding the runtime catalog.
+  `capabilities/member_lookup.capability.json` is a copy (not a move)
+  of `evidence/compiled/member_lookup.capability.json`; the latter
+  stays curated submission proof, untouched.
+- `agent/capability_api.py` — Flask app on port 5003.
+  `GET /capabilities` scans `capabilities/*.capability.json` and
+  returns a trimmed discovery listing (id, version, description, risk
+  class, confirmation requirement, typed inputs/outputs), deliberately
+  excluding internal fields (steps, guardrails, escalation policy,
+  discovery provenance) an external caller has no use for.
+  `POST /capabilities/<id>/invoke` constructs a `Replayer` exactly as
+  `replay_cli.py` already does, but with `handoff_enabled` always
+  false — a blocking HTTP request is the wrong shape for a human
+  handoff regardless of whether the underlying mechanism works. An
+  `escalate` trigger still opens in the `SessionStore` and stays
+  visible to the operator console; it just doesn't block this request.
+  `confirmed` is passed straight through to `_preflight`, unchanged.
+  Status mapping: `Success` -> 200, `BusinessOutcome` -> 200 (both are
+  legitimate answers to a well-formed request), `HardFailure` -> 422,
+  `PendingEscalation` -> 202. No 5xx for any of the four.
+- `agent/tests/test_capability_api.py` — catalog listing shape, 404 on
+  an unknown `capability_id`, and the confirmation gate (422,
+  `confirmation_required`) via the same synthetic gated-fixture pattern
+  `test_replay.py` already uses for that path, since `member_lookup`
+  itself doesn't require confirmation. A fourth test boots `target_app`
+  in-process and drives a real Success run through a live browser.
+- `evidence/capability_api/` — real curl request/response pairs against
+  the live stack (`target_app` on :5001, `capability_api` on :5003):
+  the discovery listing, a genuine Success invoke (`M1001`), and a
+  genuine BusinessOutcome invoke (`M1002`, access-denied). `full_name`
+  / `savings_balance` in the Success response are redacted to the same
+  masked, length-bearing form `agent.replay.redact` produces for
+  `replay.jsonl`; the BusinessOutcome response needed no redaction
+  since it carries only `outcome_code`.
+
+### Interruption and re-verification
+
+This work was originally built in a prior session that was interrupted
+mid-task by an unplanned machine shutdown, after the code, tests, and
+evidence had been written but before anything was committed. This
+session picked it up cold with no memory of that prior session, so
+before trusting any of it — the pre-shutdown test run, the saved
+evidence transcripts — everything was re-verified from a clean state
+rather than assumed correct:
+
+- Confirmed no stray `target_app`/`capability_api` processes were left
+  running on ports 5001/5003 from before the shutdown.
+- Started `target_app` fresh, cleared `agent/`'s `__pycache__` and any
+  `.pytest_cache`, and re-ran the full suite
+  (`python -m pytest agent/tests/ -q -p no:cacheprovider`): 48 passed,
+  genuinely re-executed rather than relying on a cached prior result.
+- Started `capability_api` fresh and re-ran Step 4's live demonstration
+  — `GET /capabilities` and both invoke cases — comparing the new
+  responses against what was already saved under
+  `evidence/capability_api/`. The listing response was byte-identical;
+  both invoke responses matched in exact key set, status code, and
+  outcome code (only run-specific fields — `run_id`, `duration_s`,
+  `evidence_path`, timestamps — differed, which is expected). No shape
+  or correctness discrepancy, so the existing evidence files were left
+  as they were rather than overwritten.
+
+### Committed
+
+- `capabilities/member_lookup.capability.json` (prior session, before
+  the interruption)
+- `agent/capability_api.py`
+- `agent/tests/test_capability_api.py`
+- `evidence/capability_api/`, this entry
