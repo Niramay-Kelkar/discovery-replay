@@ -55,6 +55,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, Page, sync_playwright
 from playwright.sync_api import TimeoutError as PWTimeout
 
@@ -268,7 +269,7 @@ class _Resolver:
     def visible(self, loc: LocatorStrategy) -> bool:
         try:
             return bool(self.resolve(loc).is_visible())
-        except Exception:
+        except PlaywrightError:
             return False
 
 
@@ -554,7 +555,7 @@ class Replayer:
         if step.action == "click":
             try:
                 target.scroll_into_view_if_needed(timeout=2000)
-            except Exception:
+            except PlaywrightError:
                 pass
             self._last_doc_status = None
             # A click that triggers navigation is held by Playwright until
@@ -608,7 +609,7 @@ class Replayer:
                 dlg = page.get_by_role("alertdialog")
                 if dlg.count() >= 1 and dlg.first.is_visible():
                     unrecognized_dialog = True
-            except Exception:
+            except PlaywrightError:
                 pass
 
         env = CheckEnv(
@@ -660,7 +661,7 @@ class Replayer:
                         )
                         if loc.count() and loc.first.is_visible():
                             break
-                    except Exception:
+                    except PlaywrightError:
                         pass
                 time.sleep(0.25)
         return False
@@ -729,7 +730,7 @@ class Replayer:
             return None
         try:
             text = page.locator("body").inner_text(timeout=2000).lower()
-        except Exception:
+        except PlaywrightError:
             return None
         for pat in pats:
             if pat.lower() in text:
@@ -743,7 +744,7 @@ class Replayer:
             req = resp.request
             if req.is_navigation_request() and req.frame.parent_frame is None:
                 self._last_doc_status = resp.status
-        except Exception:
+        except PlaywrightError:
             pass
 
     def _url_for(self, route: str) -> str:

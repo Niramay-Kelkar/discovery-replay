@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
 
 from agent.perception import KNOWN_ROLES, Perception, ResolutionError
@@ -265,10 +266,10 @@ class ToolExecutor:
     def _settle(self) -> None:
         try:
             self.page.wait_for_load_state("networkidle", timeout=SETTLE_TIMEOUT_MS)
-        except Exception:
+        except PlaywrightError:
             try:
                 self.page.wait_for_load_state("domcontentloaded", timeout=2000)
-            except Exception:
+            except PlaywrightError:
                 pass
 
     def _navigate(self, path: str) -> tuple[str, str]:

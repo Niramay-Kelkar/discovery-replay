@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, Page
 
 
@@ -107,11 +108,11 @@ class Perception:
         target = loc if nth is None else loc
         try:
             text = (target.inner_text(timeout=2000) or "").strip()
-        except Exception:
+        except PlaywrightError:
             text = (target.text_content() or "").strip()
         try:
             dom_tag = target.evaluate("el => el.tagName.toLowerCase()")
-        except Exception:
+        except PlaywrightError:
             dom_tag = ""
 
         return ResolvedElement(
@@ -192,7 +193,7 @@ class Perception:
         """
         try:
             res = loc.evaluate(js)
-        except Exception:
+        except PlaywrightError:
             res = None
         if not res:
             return None, None
@@ -226,10 +227,10 @@ class Perception:
         """
         try:
             return (loc.evaluate(js) or "").strip()
-        except Exception:
+        except PlaywrightError:
             try:
                 return (loc.inner_text(timeout=2000) or "").strip()
-            except Exception:
+            except PlaywrightError:
                 return ""
 
     # -- evidence (not part of what the model sees) ---------------------
@@ -237,5 +238,5 @@ class Perception:
     def screenshot(self, path: str) -> None:
         try:
             self.page.screenshot(path=path, full_page=True)
-        except Exception:
+        except PlaywrightError:
             pass

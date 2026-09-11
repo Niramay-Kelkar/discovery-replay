@@ -25,6 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import get_args
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
 
 from agent.models import DetectionKind, DetectionRule, ExpectedOutcome
@@ -44,10 +45,10 @@ class DetectionContext:
         if self._text is None:
             try:
                 self._text = self.page.locator("body").inner_text(timeout=2000)
-            except Exception:
+            except PlaywrightError:
                 try:
                     self._text = self.page.content()
-                except Exception:
+                except PlaywrightError:
                     self._text = ""
         return self._text
 
@@ -86,7 +87,7 @@ def _aria_visible(rule: DetectionRule, ctx: DetectionContext) -> bool:
         if loc.count() < 1:
             return False
         return bool(loc.first.is_visible())
-    except Exception:
+    except PlaywrightError:
         return False
 
 
