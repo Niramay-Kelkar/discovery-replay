@@ -87,7 +87,10 @@ def _now_iso() -> str:
 
 
 def _run_id() -> str:
-    return "disc-" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    # Deliberately local wall-clock time, unlike _now_iso() above: this is a
+    # human-facing folder/run-id name, not a stored timestamp, and should
+    # match what an operator sees on their own clock.
+    return "disc-" + datetime.now().strftime("%Y%m%d-%H%M%S")  # noqa: DTZ005
 
 
 class DiscoveryAgent:

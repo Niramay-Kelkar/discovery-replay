@@ -252,7 +252,7 @@ class ToolExecutor:
     # -- individual tools --------------------------------------------
 
     def _resolve_path(self, path: str) -> str:
-        if path.startswith("http://") or path.startswith("https://"):
+        if path.startswith(("http://", "https://")):
             url = path
         else:
             url = urljoin(self.base_url + "/", path.lstrip("/"))

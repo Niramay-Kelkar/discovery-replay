@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from agent.compile import (
     CompileError,
@@ -51,7 +52,7 @@ def _minimal_policy(**overrides) -> PolicySpec:
 # --- happy path -------------------------------------------------------------
 
 def test_compiles_the_real_trajectory():
-    cap, notes = compile_capability(_real_trajectory(), POLICY_SPEC, INPUT_BINDINGS)
+    cap, _ = compile_capability(_real_trajectory(), POLICY_SPEC, INPUT_BINDINGS)
     assert cap.capability_id == "member_lookup"
     assert cap.version == "1.1.0"
     # 6 trajectory action steps (click, type, click, click, extract, extract)
@@ -237,7 +238,7 @@ def test_search_field_gap_is_recorded_as_resolved():
 # --- failure paths ---------------------------------------------------------
 
 def test_missing_required_policy_field_fails_loudly():
-    with pytest.raises(Exception):  # pydantic ValidationError at construction
+    with pytest.raises(ValidationError):
         PolicySpec(capability_id="c", version="1", description="d", app="a")
 
 

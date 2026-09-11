@@ -213,14 +213,16 @@ POLICY_SPEC = PolicySpec(
         "savings_balance": "savings_balance",
     },
     known_gaps=[
-        "RESOLVED (was: the search_field radio was never exercised). "
-        "disc-20260910-084016 drives the 'Last name' radio for real, so the "
-        "compiled capability now has a mechanically-derived choose-search-field "
-        "step and a closed-enum search_field input covering both modes. Verified "
-        "by replaying the recompiled artifact against the live app with "
-        "search_field='Last name' and search_field='Member ID' -- see the "
-        "'What changed in this recompile' section of the *.notes.md sidecar "
-        "and BUILD_LOG.md.",
+        (
+            "RESOLVED (was: the search_field radio was never exercised). "
+            "disc-20260910-084016 drives the 'Last name' radio for real, so the "
+            "compiled capability now has a mechanically-derived choose-search-field "
+            "step and a closed-enum search_field input covering both modes. Verified "
+            "by replaying the recompiled artifact against the live app with "
+            "search_field='Last name' and search_field='Member ID' -- see the "
+            "'What changed in this recompile' section of the *.notes.md sidecar "
+            "and BUILD_LOG.md."
+        ),
     ],
     policy_authored_by="policy_team (hand-authored policy for disc-20260910-084016)",
     notes=(

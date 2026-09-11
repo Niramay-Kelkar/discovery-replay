@@ -105,7 +105,7 @@ class Perception:
         elif count != 1:
             raise ResolutionError(role, name, count)
 
-        target = loc if nth is None else loc
+        target = loc
         try:
             text = (target.inner_text(timeout=2000) or "").strip()
         except PlaywrightError:

@@ -17,7 +17,7 @@ def _executor():
 
 
 def test_done_rejects_uncaptured_output_name():
-    ex, traj = _executor()
+    ex, _traj = _executor()
     try:
         ex._validate_done(["savings_balance"])
         assert False, "should have raised"
