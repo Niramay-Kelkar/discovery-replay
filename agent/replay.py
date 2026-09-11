@@ -290,11 +290,12 @@ class Replayer:
         handoff_timeout_override: Optional[float] = None,
         poll_interval_s: float = 2.0,
         cdp_port: Optional[int] = None,
+        run_id_suffix: str = "",
     ):
         self.cap = capability
         self.base_url = (base_url or capability.target.base_url).rstrip("/")
         self.headed = headed
-        self.run_id = _run_id()
+        self.run_id = _run_id() + run_id_suffix
         self.run_dir = Path(evidence_root) / self.run_id
         self.ev = _Evidence(self.run_dir / "replay.jsonl")
 
