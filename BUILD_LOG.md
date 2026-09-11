@@ -1795,3 +1795,144 @@ after all changes: 56 passed.
 - `agent/replay_cli.py` (`--repeat`, aggregation, printing)
 - `agent/tests/test_replay_repeat.py`
 - `evidence/stability/`, this entry
+
+---
+
+## 2026-09-11 — Document the two built stretch goals
+
+### Changed
+
+Both stretch goals (the capability HTTP interface, the `--repeat N`
+stability check) had working code, tests, and evidence committed
+without any corresponding write-up — a gap against this project's own
+convention, backfilled here rather than left implicit in the diffs.
+
+- `README.md` — added the exact commands for both stretch-goal demo
+  paths: `agent.capability_api` on `:5003` (catalog listing, a Success
+  invoke, a BusinessOutcome invoke) and `replay_cli --repeat N`, each
+  pointing at the real captured evidence under
+  `evidence/capability_api/` and `evidence/stability/` rather than
+  restating it.
+- `REPORT.md` — the Cuts section previously said no stretch goals had
+  been attempted, which stopped being true once both were built; it
+  now describes each and cites the evidence backing them, and adds a
+  short design note on assisted fallback as the one stretch goal
+  deliberately left unbuilt and why. Architecture's process count is
+  corrected to note the capability API as a sixth, stretch-goal process
+  alongside the original five.
+
+### Committed
+
+- `README.md` (`a7a0906`)
+- `REPORT.md` (`a7cd920`)
+
+---
+
+## 2026-09-11 — Close four evidence gaps in the curated submission set
+
+### Changed
+
+`evidence/README.md` and REPORT.md's outcome taxonomy claim more
+coverage than `evidence/` actually demonstrated with real runs. Four
+gaps closed, each with a genuine run against the live target app, not
+a hand-written illustration:
+
+- `evidence/replay/04-business-outcome-not-found/` — replays
+  `member_lookup` against `M9999`, a member ID with no matching row in
+  `target_app/seed.py`, confirming the compiled checkpoint at
+  `click_look_up` actually detects the search-results page's "No
+  members matched that search" text and classifies it as
+  `MEMBER_NOT_FOUND` rather than treating an empty result as a failure.
+- `evidence/replay/05-business-outcome-supervisor-review/` — replays
+  against `M1006`, whose detail page serves a confirmation interstitial
+  instead of the record, confirming the compiled checkpoint at
+  `click_open_detail_for` matches `SUPERVISOR_REVIEW_REQUIRED` and ends
+  the run cleanly rather than clicking through the interstitial.
+- `evidence/risk_gating/` — REPORT.md's Safety section says the
+  `requires_confirmation` gate is proven only by an in-memory test
+  fixture (`test_replay.py`'s synthetic `member_lookup` copy with the
+  flag forced true, since no genuinely mutating capability has been
+  discovered yet). This directory runs that same fixture standalone,
+  outside the test suite: an unconfirmed attempt hard-fails in
+  preflight before any browser launches (`result.txt`, attempt 1), and
+  a confirmed attempt runs the capability to completion against the
+  live target app (`result.txt` attempt 2, `replay.jsonl`,
+  `confirmed_run_final_page.png`). Still the synthetic fixture, not a
+  real mutating capability — `evidence/README.md` says so plainly
+  rather than letting the directory imply otherwise.
+- `evidence/replay/03-escalation-handoff/screenshots/
+  operator_console_pause.jpg` — the escalation evidence previously only
+  showed the target app's maintenance-hold dialog, one side of the
+  handoff. Adds a screenshot of the operator console itself, mid-pause,
+  for that same `M1007` run: run id, trigger, expected/observed, the
+  dialog screenshot, and the "Resume run" form all visible together —
+  the side an operator actually uses to release the run.
+- `evidence/README.md` — documents all four additions, including an
+  explicit note on how the risk-gating preflight refusal differs
+  mechanically from a mid-run escalation handoff (no live session to
+  hand off — refusing to start at all vs. pausing one already running).
+
+### Committed
+
+- `evidence/replay/04-business-outcome-not-found/` (`fb93fb1`)
+- `evidence/replay/05-business-outcome-supervisor-review/` (`e3ba8be`)
+- `evidence/risk_gating/` (`2ac9895`)
+- `evidence/replay/03-escalation-handoff/screenshots/operator_console_pause.jpg` (`0ac86c3`)
+- `evidence/README.md`, this entry (`bb056a7`)
+
+---
+
+## 2026-09-11 — Docker for the two browser-free services
+
+### Built
+
+`target_app` and `operator_console` are plain Flask apps with no
+browser dependency; `discover.py`, `replay.py`, and `capability_api.py`
+all drive a headed Playwright browser and have to stay on the host —
+containerizing them isn't a scoping choice, it's a real constraint of
+needing a live, attachable browser session for discovery and for the
+CDP-based escalation handoff.
+
+- `Dockerfile` — one image, built from `python:3.13-slim`, installing
+  root `requirements.txt` plus `target_app/requirements.txt`. No
+  default `CMD`; `docker-compose.yml` sets the command per service.
+- `docker-compose.yml` — two services off that image. `target_app`
+  seeds the database fresh on every start and runs the Flask dev server
+  bound to `0.0.0.0:5001` (the app's own `__main__` block binds
+  `127.0.0.1` by default, unreachable from outside the container, so
+  the compose command uses `flask --app target_app.app run
+  --host=0.0.0.0` instead). `operator_console` runs on `0.0.0.0:5002`
+  the same way, with the repo root bind-mounted so its default
+  `evidence/sessions` and `evidence/replays` paths resolve identically
+  in or out of the container.
+- `.dockerignore` — excludes the venv, `__pycache__`, `.git`, `.env`,
+  and the gitignored `evidence/runs|sessions|replays` directories.
+- `README.md` — a "Quick start via Docker" section: `docker compose up`
+  for the two services, then `discover.py`/`replay.py` still run on the
+  host against them.
+
+### Verified
+
+`docker compose build` — clean install, no dependency issues in the
+slim image. `docker compose up -d` — both containers started; `curl`
+from the host confirmed HTTP 200 on `:5001` and `:5002`; container logs
+showed `target_app` seeding 7 members and both Flask servers bound to
+`0.0.0.0`. Ran a real replay from the host venv against the
+containerized `target_app`:
+
+```
+.venv/bin/python -m agent.replay_cli \
+  --capability capabilities/member_lookup.capability.json \
+  --input "search_field=Last name" --input "search_term=Okafor" \
+  --base-url http://127.0.0.1:5001 --json
+```
+
+`status: success`, 7 steps, correct outputs (`James Okafor`,
+`$2,219.75`). `docker compose down` after, test evidence deleted before
+committing.
+
+### Committed
+
+- `Dockerfile`, `.dockerignore` (`21a3b0f`)
+- `docker-compose.yml` (`28f1d02`)
+- `README.md`, this entry (`5b24136`)
