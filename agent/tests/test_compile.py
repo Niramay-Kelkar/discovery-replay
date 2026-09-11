@@ -22,7 +22,7 @@ from agent.trajectory import Trajectory
 
 REAL_TRAJ = (
     Path(__file__).resolve().parents[2]
-    / "evidence/runs/disc-20260910-084016/trajectory.json"
+    / "evidence/discovery/disc-20260910-084016/trajectory.json"
 )
 
 
