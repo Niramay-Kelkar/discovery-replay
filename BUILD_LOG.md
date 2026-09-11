@@ -1700,3 +1700,98 @@ rather than assumed correct:
 - `agent/capability_api.py`
 - `agent/tests/test_capability_api.py`
 - `evidence/capability_api/`, this entry
+
+---
+
+## 2026-09-11 — Multi-run stability signal (`--repeat N`)
+
+### Built
+
+Section 8 stretch goal 2, "multi-run stability": the same compiled
+capability + inputs replayed N times sequentially, LLM still nowhere in
+the loop, to measure whether an artifact is actually stable rather than
+trusting a single pass.
+
+- `agent/replay_cli.py` — new `--repeat N` flag (default `1`, so
+  existing single-run behavior and exit codes are unchanged when the
+  flag is omitted). At `N > 1`, `main()` delegates to `_run_repeat()`:
+  a plain sequential `for i in range(N)` — no thread pool, no asyncio,
+  no subprocess parallelism, matching the brief's exclusion of scaling
+  infrastructure from this project's scope. Each iteration constructs a
+  fresh `Replayer` (the same pattern every existing caller already
+  uses — `replay_cli`'s own single-run path, `capability_api.py`,
+  `test_replay.py`), and there is no retry-on-failure inside the loop:
+  each run reaches its natural conclusion once, since retrying before
+  counting would hide the exact flakiness this feature exists to
+  surface. Repeat runs default `handoff_enabled` to `False` for the
+  same reason `capability_api.py` does — an automated stability check
+  blocking N times for a human operator defeats its own purpose; a new
+  `--repeat-allow-handoff` flag opts back in per invocation.
+- `agent/replay.py` — `Replayer.__init__` gained an additive
+  `run_id_suffix: str = ""` parameter (default preserves every other
+  caller's behavior unchanged). Fixes a real collision risk: `_run_id()`
+  is second-resolution (`replay-YYYYMMDD-HHMMSS`, no random component),
+  and a run that fails at preflight returns near-instantly, so two such
+  runs inside a repeat loop could previously land in the same
+  wall-clock second and silently overwrite each other's
+  `evidence/replays/<run_id>/replay.jsonl` (opened in `"w"` mode).
+  `_run_repeat()` passes `run_id_suffix=f"-r{i}"` per iteration.
+- `_aggregate_stability(results: list[dict]) -> dict` (`replay_cli.py`)
+  — the stability signal itself, computed over each run's
+  `.to_dict()`: `success_rate` (`Success` + `BusinessOutcome` count /
+  N — both are legitimate completions per the existing three-way
+  outcome taxonomy), per-status counts, `failure_determinism`
+  (computed only over `hard_failure` runs, grouped by
+  `(at_step_id, trigger)` — `"deterministic"` if every hard failure
+  shares the same step+trigger, `"non-deterministic"` if they differ,
+  `"n/a"` if there were none), and `duration_s` min/max/mean across all
+  N runs. `_print_stability_summary()` renders it human-readable;
+  `--json` prints the same aggregate as JSON, matching the existing
+  single-run `--json` convention. Exit code for `--repeat` mode: `0` if
+  `success_rate == 1.0`, `1` otherwise.
+- `agent/tests/test_replay_repeat.py` — eight tests against
+  `_aggregate_stability` directly, using constructed `ReplayResult`
+  objects (`Success`/`BusinessOutcome`/`HardFailure`/
+  `PendingEscalation`) rather than N real browser runs: success-rate
+  math including the Success+BusinessOutcome-both-count-as-success
+  case, `failure_determinism` for all three cases (`n/a`, matching
+  step+trigger, differing by step, differing by trigger only),
+  duration min/max/mean, and that `run_ids` are carried through for
+  traceability. Full suite: 48 -> 56 passed.
+- `evidence/stability/` — `summary.json` + `README.md`, following the
+  same curation convention as `evidence/capability_api/`.
+
+### Verified
+
+Ran `--repeat 5` for real against the live stack (`target_app` on
+:5001), same capability and happy-path inputs already used elsewhere in
+`evidence/` (`member_lookup`, `search_field=Member ID`,
+`search_term=M1001`):
+
+```
+python -m agent.replay_cli \
+    --capability capabilities/member_lookup.capability.json \
+    --input search_field="Member ID" --input search_term=M1001 \
+    --repeat 5 --json
+```
+
+All 5 runs came back `success` — `success_rate: 1.0`,
+`failure_determinism: "n/a"`, `duration_s` min `2.947s` / max `3.508s`
+/ mean `3.195s`. Confirmed the five `evidence/replays/replay-
+20260911-065607-r{0..4}` directories were written distinctly (no
+collision) and stayed outside `git status` (gitignored, as expected).
+Also spot-checked a second `--repeat 5` run against the access-denied
+input (`M1002`) to confirm `BusinessOutcome` runs are counted toward
+`success_rate` the same as `Success` runs — all 5 came back
+`business_outcome`, `success_rate: 1.0` — before discarding that run
+(not used for the committed evidence).
+
+Full test suite re-run from a clean `__pycache__`/`.pytest_cache`
+after all changes: 56 passed.
+
+### Committed
+
+- `agent/replay.py` (the `run_id_suffix` addition)
+- `agent/replay_cli.py` (`--repeat`, aggregation, printing)
+- `agent/tests/test_replay_repeat.py`
+- `evidence/stability/`, this entry
