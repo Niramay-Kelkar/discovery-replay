@@ -138,6 +138,44 @@ A committed copy of this capability lives at
 `evidence/compiled/member_lookup.capability.json`; the demo writes to
 `/tmp` so it doesn't disturb it.
 
+## Stretch goals
+
+Two Section 8 stretch goals are built on top of the same replay engine
+— no new execution logic in either, just thin wrappers around
+`agent.replay`'s `Replayer`. Both need the target app running (see
+above).
+
+**Agent-facing capability interface** — `agent.capability_api` (Flask,
+port 5003) lets a caller discover capabilities by name and invoke them
+over HTTP instead of driving the CLI directly:
+
+```bash
+.venv/bin/python -m agent.capability_api --port 5003
+```
+
+```bash
+curl http://127.0.0.1:5003/capabilities
+
+curl -X POST http://127.0.0.1:5003/capabilities/member_lookup/invoke \
+  -H "Content-Type: application/json" \
+  -d '{"search_field": "Member ID", "search_term": "M1001"}'
+```
+
+Real request/response pairs from a live run: `evidence/capability_api/`.
+
+**Multi-run stability** — `agent.replay_cli --repeat N` replays the same
+capability and inputs N times sequentially and reports a success-rate /
+failure-determinism signal instead of a single result:
+
+```bash
+.venv/bin/python -m agent.replay_cli \
+  --capability capabilities/member_lookup.capability.json \
+  --input search_field="Member ID" --input search_term=M1001 \
+  --repeat 5 --json
+```
+
+Real output from a 5-run pass: `evidence/stability/`.
+
 ### Full verification runbook
 
 [VERIFICATION.md](./VERIFICATION.md) is the scenario-by-scenario
