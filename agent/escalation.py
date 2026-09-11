@@ -26,7 +26,6 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 DEFAULT_DB_PATH = "evidence/sessions/escalations.db"
 
@@ -89,13 +88,13 @@ class SessionStore:
         capability_id: str,
         step_id: str,
         trigger: str,
-        goal: Optional[str] = None,
-        step_ordinal: Optional[int] = None,
-        phase: Optional[str] = None,
-        expected: Optional[str] = None,
-        observed: Optional[str] = None,
-        screenshot_path: Optional[str] = None,
-        handoff_deadline_at: Optional[str] = None,
+        goal: str | None = None,
+        step_ordinal: int | None = None,
+        phase: str | None = None,
+        expected: str | None = None,
+        observed: str | None = None,
+        screenshot_path: str | None = None,
+        handoff_deadline_at: str | None = None,
     ) -> int:
         if trigger not in _VALID_TRIGGERS:
             raise ValueError(
@@ -132,7 +131,7 @@ class SessionStore:
         escalation_id: int,
         *,
         resumed_by: str = "operator",
-        operator_note: Optional[str] = None,
+        operator_note: str | None = None,
     ) -> bool:
         """Record an operator's resume. Returns False if it was not still
         pending (already resumed, timed out, or gone)."""
@@ -146,7 +145,7 @@ class SessionStore:
 
     # -- reads ------------------------------------------------
 
-    def get(self, escalation_id: int) -> Optional[dict]:
+    def get(self, escalation_id: int) -> dict | None:
         with self._conn() as c:
             row = c.execute(
                 "SELECT * FROM escalations WHERE id=?", (escalation_id,)

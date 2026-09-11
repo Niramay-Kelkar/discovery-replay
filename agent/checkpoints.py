@@ -15,8 +15,9 @@ outcome-detection module's verdict rather than a second copy of it.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional, get_args
+from typing import get_args
 
 from agent.models import Checkpoint, CheckpointKind, ExpectedOutcome, LocatorStrategy
 
@@ -34,7 +35,7 @@ class CheckEnv:
     #: every output the capability declares required
     required_outputs: list[str]
     #: the expected outcome outcome-detection matched this CHECK, if any
-    matched_outcome: Optional[ExpectedOutcome] = None
+    matched_outcome: ExpectedOutcome | None = None
     #: trace of leaf results, for the evidence log
     trace: list[str] = field(default_factory=list)
 
@@ -115,7 +116,7 @@ def evaluate_checkpoint(cp: Checkpoint, env: CheckEnv) -> bool:
     return handler(cp, env)
 
 
-def _loc_label(loc: Optional[LocatorStrategy]) -> str:
+def _loc_label(loc: LocatorStrategy | None) -> str:
     if loc is None:
         return "?"
     return f"{loc.role or ''} {loc.name or loc.text or loc.label or ''}".strip()

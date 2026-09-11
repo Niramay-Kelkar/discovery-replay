@@ -17,7 +17,6 @@ surfaces to the model.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from playwright.sync_api import Locator, Page
 
@@ -83,7 +82,7 @@ class Perception:
         name: str,
         *,
         exact: bool = True,
-        nth: Optional[int] = None,
+        nth: int | None = None,
     ) -> ResolvedElement:
         """Resolve a role+name to exactly one element.
 
@@ -126,7 +125,7 @@ class Perception:
 
     # -- extraction ------------------------------------------------------
 
-    def extract(self, role: str, name: str) -> tuple[str, Optional[str], Optional[str], ResolvedElement]:
+    def extract(self, role: str, name: str) -> tuple[str, str | None, str | None, ResolvedElement]:
         """Resolve an element and read its value *from the DOM*.
 
         Returns ``(value, label, label_source, resolved)``. ``value`` is
@@ -142,7 +141,7 @@ class Perception:
         label, label_source = self._find_label(resolved.locator)
         return value, label, label_source, resolved
 
-    def _find_label(self, loc: Locator) -> tuple[Optional[str], Optional[str]]:
+    def _find_label(self, loc: Locator) -> tuple[str | None, str | None]:
         """Walk page structure from a value element to its label.
 
         Ordered by how reliable the association is. Runs in the page so

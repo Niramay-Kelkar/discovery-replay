@@ -2,7 +2,7 @@
 
 Offline: no browser, no API.
 """
-from agent.discovery_tools import _ToolError, ToolExecutor
+from agent.discovery_tools import ToolExecutor, _ToolError
 from agent.trajectory import ExtractionResult, Trajectory
 
 
@@ -41,6 +41,7 @@ def test_done_accepts_only_captured_names():
 
 def test_resolve_defaults_to_exact_and_fails_on_ambiguity():
     import inspect
+
     from agent.perception import Perception
     sig = inspect.signature(Perception.resolve)
     # exact matching is the default; replay may opt out per-locator, discovery

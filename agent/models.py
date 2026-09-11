@@ -17,7 +17,7 @@ Layering (DESIGN.md §1):
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -90,28 +90,28 @@ class LocatorStrategy(BaseModel):
     rank: int = Field(ge=1, description="1 = try first")
 
     # aria_role
-    role: Optional[str] = None
-    name: Optional[str] = None
+    role: str | None = None
+    name: str | None = None
     exact: bool = Field(
         default=True, description="exact vs substring match on name/text"
     )
 
     # text_label
-    text: Optional[str] = None
-    label: Optional[str] = None
+    text: str | None = None
+    label: str | None = None
 
     # common
-    within: Optional[str] = Field(
+    within: str | None = Field(
         default=None,
         description="named region / parent locator to scope the search to",
     )
-    nth: Optional[int] = Field(
+    nth: int | None = Field(
         default=None, description="disambiguate when several elements match"
     )
-    note: Optional[str] = None
+    note: str | None = None
 
     @model_validator(mode="after")
-    def _has_enough_to_resolve(self) -> "LocatorStrategy":
+    def _has_enough_to_resolve(self) -> LocatorStrategy:
         if self.kind == "aria_role" and not (self.role or self.name):
             raise ValueError("aria_role locator needs role and/or name")
         if self.kind == "text_label" and not (self.text or self.label):
@@ -145,25 +145,25 @@ class Checkpoint(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     kind: CheckpointKind
-    description: Optional[str] = None
+    description: str | None = None
 
     # element_visible
-    locator: Optional[LocatorStrategy] = None
+    locator: LocatorStrategy | None = None
 
     # text_present
-    text: Optional[str] = None
+    text: str | None = None
 
     # outputs_non_empty  (None => every required output)
-    outputs: Optional[list[str]] = None
+    outputs: list[str] | None = None
 
     # outcome_matched  (None => any recognized expected outcome)
-    outcome_code: Optional[str] = None
+    outcome_code: str | None = None
 
     # any_of / all_of
-    checks: Optional[list["Checkpoint"]] = None
+    checks: list[Checkpoint] | None = None
 
     @model_validator(mode="after")
-    def _shape_matches_kind(self) -> "Checkpoint":
+    def _shape_matches_kind(self) -> Checkpoint:
         if self.kind == "element_visible" and self.locator is None:
             raise ValueError("element_visible checkpoint needs a locator")
         if self.kind == "text_present" and not self.text:
@@ -211,18 +211,18 @@ class Step(BaseModel):
     locators: list[LocatorStrategy] = Field(default_factory=list)
 
     # action-specific payloads
-    target_route: Optional[str] = Field(
+    target_route: str | None = Field(
         default=None, description="for action='navigate'"
     )
-    input_name: Optional[str] = Field(
+    input_name: str | None = Field(
         default=None, description="for 'fill'/'select_option': the input to use"
     )
-    value_template: Optional[str] = Field(
+    value_template: str | None = Field(
         default=None,
         description="literal or '{{input_name}}' value for 'fill'/'select_option'",
     )
-    key: Optional[str] = Field(default=None, description="for action='press_key'")
-    output_name: Optional[str] = Field(
+    key: str | None = Field(default=None, description="for action='press_key'")
+    output_name: str | None = Field(
         default=None, description="for 'extract': the output to populate"
     )
 
@@ -233,7 +233,7 @@ class Step(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _shape_matches_action(self) -> "Step":
+    def _shape_matches_action(self) -> Step:
         if self.action == "navigate" and not self.target_route:
             raise ValueError("navigate step needs target_route")
         if self.action in ("fill", "select_option") and not self.value_template:
@@ -247,7 +247,7 @@ class Step(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _locators_ranked(self) -> "Step":
+    def _locators_ranked(self) -> Step:
         ranks = [loc.rank for loc in self.locators]
         if ranks and sorted(ranks) != list(range(1, len(ranks) + 1)):
             raise ValueError("locator ranks must be 1..N with no gaps or dupes")
@@ -265,8 +265,8 @@ class InputParam(BaseModel):
     type: ParamType
     required: bool = True
     description: str
-    example: Optional[str] = None
-    allowed_values: Optional[list[str]] = Field(
+    example: str | None = None
+    allowed_values: list[str] | None = Field(
         default=None, description="closed set, if the input is an enum"
     )
 
@@ -308,24 +308,24 @@ class DetectionRule(BaseModel):
     kind: DetectionKind
 
     # text_present
-    text: Optional[str] = None
+    text: str | None = None
 
     # aria_visible
-    role: Optional[str] = None
-    name: Optional[str] = None
+    role: str | None = None
+    name: str | None = None
     exact: bool = False
 
     # http_status
-    status: Optional[int] = None
+    status: int | None = None
 
     # url_matches
-    pattern: Optional[str] = None
+    pattern: str | None = None
 
     # any_of / all_of
-    rules: Optional[list["DetectionRule"]] = None
+    rules: list[DetectionRule] | None = None
 
     @model_validator(mode="after")
-    def _shape_matches_kind(self) -> "DetectionRule":
+    def _shape_matches_kind(self) -> DetectionRule:
         need = {
             "text_present": self.text,
             "aria_visible": self.role or self.name,
@@ -437,8 +437,8 @@ class Capability(BaseModel):
     escalation_policy: EscalationPolicy = Field(default_factory=EscalationPolicy)
 
     # --- provenance ---
-    discovery: Optional[DiscoveryProvenance] = None
-    policy_authored_by: Optional[str] = Field(
+    discovery: DiscoveryProvenance | None = None
+    policy_authored_by: str | None = Field(
         default=None,
         description="replay refuses to run until this is set",
     )
@@ -446,14 +446,14 @@ class Capability(BaseModel):
     # -- cross-field validation (DESIGN.md §8) --
 
     @model_validator(mode="after")
-    def _ordinals_contiguous(self) -> "Capability":
+    def _ordinals_contiguous(self) -> Capability:
         ords = [s.ordinal for s in self.steps]
         if ords and sorted(ords) != list(range(1, len(ords) + 1)):
             raise ValueError("step ordinals must be 1..N with no gaps or dupes")
         return self
 
     @model_validator(mode="after")
-    def _steps_reference_declared_params(self) -> "Capability":
+    def _steps_reference_declared_params(self) -> Capability:
         input_names = {p.name for p in self.inputs}
         output_names = {p.name for p in self.outputs}
         for s in self.steps:
@@ -471,7 +471,7 @@ class Capability(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _guardrails_cover_actions(self) -> "Capability":
+    def _guardrails_cover_actions(self) -> Capability:
         used = {s.action for s in self.steps}
         missing = used - set(self.guardrails.allowlist_action_types)
         if missing:
@@ -481,7 +481,7 @@ class Capability(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _outcome_codes_resolve(self) -> "Capability":
+    def _outcome_codes_resolve(self) -> Capability:
         codes = {o.code for o in self.expected_outcomes}
         for s in self.steps:
             for cp in _walk_checkpoints(s.checkpoint):
@@ -497,7 +497,7 @@ class Capability(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _has_one_terminal_extract(self) -> "Capability":
+    def _has_one_terminal_extract(self) -> Capability:
         if not self.steps:
             return self
         satisfiers = [

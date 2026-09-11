@@ -19,12 +19,10 @@ Stopping: ``done`` (clean), max steps, or wall-clock timeout.
 from __future__ import annotations
 
 import json
-import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import anthropic
 from playwright.sync_api import sync_playwright

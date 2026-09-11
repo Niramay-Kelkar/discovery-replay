@@ -42,7 +42,6 @@ What *is* mechanical, and is compiled straight from the trajectory:
 from __future__ import annotations
 
 import re
-from typing import Optional
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -125,7 +124,7 @@ class PolicySpec(BaseModel):
 
     # -- policy layer (never derived from a trajectory) --
     risk_class: RiskClass
-    requires_confirmation: Optional[bool] = Field(
+    requires_confirmation: bool | None = Field(
         default=None,
         description="None => derive the safe default from risk_class",
     )
@@ -140,7 +139,7 @@ class PolicySpec(BaseModel):
             "will cover. Authored, justified, not a wildcard."
         ),
     )
-    max_steps: Optional[int] = Field(
+    max_steps: int | None = Field(
         default=None, description="None => compiled step count plus a small margin"
     )
     output_name_mapping: dict[str, str] = Field(
@@ -164,7 +163,7 @@ class PolicySpec(BaseModel):
         ),
     )
     policy_authored_by: str
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +246,7 @@ def _generalize_name(
     name: str,
     bindings: list[InputBinding],
     captured_values: list[str],
-) -> tuple[str, bool, Optional[str]]:
+) -> tuple[str, bool, str | None]:
     """Turn a resolved accessible name into one that works for any valid
     input.
 
@@ -266,14 +265,14 @@ def _generalize_name(
        (possibly truncated) prefix with its ``{{param}}`` template --
        replay fills it per invocation.
     """
-    cut: Optional[int] = None
+    cut: int | None = None
     for val in sorted((v for v in captured_values if v), key=len, reverse=True):
         if val in name:
             idx = name.index(val)
             cut = idx if cut is None else min(cut, idx)
 
     exact = True
-    note: Optional[str] = None
+    note: str | None = None
     out = name
     if cut is not None:
         out = name[:cut].rstrip(" ,;:-–")

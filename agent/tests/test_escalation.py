@@ -1,5 +1,4 @@
 """Escalation store + operator console tests. Offline: no browser, no API."""
-from pathlib import Path
 
 import pytest
 

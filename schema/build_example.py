@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent.models import (  # noqa: E402
+from agent.models import (
     Capability,
     Checkpoint,
     DetectionRule,

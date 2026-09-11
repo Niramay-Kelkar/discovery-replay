@@ -32,7 +32,13 @@ from pathlib import Path
 from flask import Flask, jsonify, request
 
 from agent.models import Capability, InputParam, OutputParam
-from agent.replay import BusinessOutcome, HardFailure, PendingEscalation, Replayer, Success
+from agent.replay import (
+    BusinessOutcome,
+    HardFailure,
+    PendingEscalation,
+    Replayer,
+    Success,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

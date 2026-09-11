@@ -52,7 +52,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
 from playwright.sync_api import Locator, Page, sync_playwright
@@ -152,7 +152,7 @@ class _StepFailure(Exception):
 @dataclass
 class _CheckReport:
     ok: bool
-    matched_outcome: Optional[Any]  # ExpectedOutcome
+    matched_outcome: Any | None  # ExpectedOutcome
     unrecognized_dialog: bool
     settle_timed_out: bool
     detail: str
@@ -281,15 +281,15 @@ class Replayer:
         self,
         capability: Capability,
         *,
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
         headed: bool = False,
         evidence_root: str = "evidence/replays",
         handoff_enabled: bool = True,
         confirmed: bool = False,
         session_db_path: str = DEFAULT_DB_PATH,
-        handoff_timeout_override: Optional[float] = None,
+        handoff_timeout_override: float | None = None,
         poll_interval_s: float = 2.0,
-        cdp_port: Optional[int] = None,
+        cdp_port: int | None = None,
         run_id_suffix: str = "",
     ):
         self.cap = capability
@@ -305,9 +305,9 @@ class Replayer:
         self.handoff_timeout_override = handoff_timeout_override
         self.poll_interval_s = poll_interval_s
         self.cdp_port = cdp_port
-        self._store: Optional[SessionStore] = None
+        self._store: SessionStore | None = None
 
-        self._last_doc_status: Optional[int] = None
+        self._last_doc_status: int | None = None
         self._steps_executed = 0
         self._t0 = time.time()
         self.extracted: dict[str, str] = {}
@@ -367,7 +367,7 @@ class Replayer:
 
     # -- preflight --------------------------------------------------
 
-    def _preflight(self, inputs: dict[str, str]) -> Optional[ReplayResult]:
+    def _preflight(self, inputs: dict[str, str]) -> ReplayResult | None:
         if not self.cap.policy_authored_by:
             return HardFailure(
                 **self._base_fields(),
@@ -674,7 +674,7 @@ class Replayer:
 
     # -- guardrails --------------------------------------------
 
-    def _guard_step(self, step: Step, inputs) -> Optional[ReplayResult]:
+    def _guard_step(self, step: Step, inputs) -> ReplayResult | None:
         gr = self.cap.guardrails
         if step.action not in gr.allowlist_action_types:
             return HardFailure(
@@ -703,7 +703,7 @@ class Replayer:
             for pat in self.cap.guardrails.allowlist_routes
         )
 
-    def _post_nav_guard(self, page: Page, step: Step) -> Optional[ReplayResult]:
+    def _post_nav_guard(self, page: Page, step: Step) -> ReplayResult | None:
         parts = urlsplit(page.url)
         base = urlsplit(self.base_url)
         gr = self.cap.guardrails
@@ -723,7 +723,7 @@ class Replayer:
             )
         return None
 
-    def _denylist_hit(self, page: Page) -> Optional[str]:
+    def _denylist_hit(self, page: Page) -> str | None:
         pats = self.cap.guardrails.denylist_text_patterns
         if not pats:
             return None
@@ -765,7 +765,7 @@ class Replayer:
     def _verify_step(
         self, step: Step, page: Page, perception: Perception,
         resolver: _Resolver, inputs, t_step: float,
-    ) -> tuple[str, Optional[ReplayResult]]:
+    ) -> tuple[str, ReplayResult | None]:
         """SETTLE -> CHECK (with timeout retries) -> interpret, escalating
         and resuming as the policy directs.
 
@@ -855,7 +855,7 @@ class Replayer:
     def _dispatch_trigger(
         self, step: Step, page: Page, perception: Perception, resolver: _Resolver,
         inputs, phase: str, trigger_name: str, expected: str, observed: str,
-    ) -> tuple[str, Optional[ReplayResult]]:
+    ) -> tuple[str, ReplayResult | None]:
         """Apply the ``EscalationAction`` the policy maps *trigger_name* to.
 
         ``retry`` -> SETTLE/CHECK retries are the caller's job and are
@@ -890,7 +890,7 @@ class Replayer:
     def _escalate(
         self, step: Step, page: Page, perception: Perception, phase: str,
         trigger_name: str, expected: str, observed: str,
-    ) -> tuple[str, Optional[ReplayResult]]:
+    ) -> tuple[str, ReplayResult | None]:
         """Record the blocked step, keep the browser open, and poll the
         SessionStore for an operator's resume up to the handoff timeout."""
         store = self._session_store()
@@ -983,7 +983,7 @@ def replay(
     capability: Capability,
     inputs: dict[str, str],
     *,
-    base_url: Optional[str] = None,
+    base_url: str | None = None,
     headed: bool = False,
     evidence_root: str = "evidence/replays",
     handoff_enabled: bool = True,

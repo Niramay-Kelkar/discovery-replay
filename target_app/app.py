@@ -50,7 +50,7 @@ def close_db(exc):
 
 
 def format_balance(cents):
-    return "${:,.2f}".format(cents / 100)
+    return f"${cents / 100:,.2f}"
 
 
 @app.route("/")

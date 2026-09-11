@@ -6,15 +6,12 @@ guardrail route matching, and the four-way result contract.
 """
 from typing import get_args
 
-import pytest
-
 from agent.checkpoints import CheckEnv, evaluate_checkpoint
 from agent.models import (
     Capability,
     Checkpoint,
     CheckpointKind,
     DetectionKind,
-    ExpectedOutcome,
     LocatorStrategy,
 )
 from agent.outcome_detection import _HANDLERS as _DET_HANDLERS

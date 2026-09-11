@@ -13,7 +13,7 @@ looks replayable before anything has decided it is.
 """
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,12 +46,12 @@ class ResolvedLocator(BaseModel):
     role: str
     name: str
     exact: bool = True
-    nth: Optional[int] = None
+    nth: int | None = None
     match_count: int = Field(description="how many elements this matched")
-    resolved_text: Optional[str] = Field(
+    resolved_text: str | None = Field(
         default=None, description="inner_text of the resolved element"
     )
-    dom_tag: Optional[str] = None
+    dom_tag: str | None = None
 
 
 class ExtractionResult(BaseModel):
@@ -61,11 +61,11 @@ class ExtractionResult(BaseModel):
 
     output_name: str
     value: str = Field(description="read from the live DOM, not the model")
-    label: Optional[str] = Field(
+    label: str | None = Field(
         default=None,
         description="label text the value sits next to, if determinable",
     )
-    label_source: Optional[str] = Field(
+    label_source: str | None = Field(
         default=None,
         description="how the label was found, e.g. 'rowheader_in_row'",
     )
@@ -77,28 +77,28 @@ class TrajectoryStep(BaseModel):
     index: int = Field(ge=1)
     tool: Literal["navigate", "click", "type", "extract", "done"]
     params: dict[str, Any]
-    rationale: Optional[str] = Field(
+    rationale: str | None = Field(
         default=None, description="any text the model emitted alongside the call"
     )
 
     status: StepStatus
-    error: Optional[str] = None
+    error: str | None = None
 
     # populated for click / type / extract
-    resolved: Optional[ResolvedLocator] = None
+    resolved: ResolvedLocator | None = None
     # populated for extract
-    extraction: Optional[ExtractionResult] = None
+    extraction: ExtractionResult | None = None
     # populated for navigate
-    navigated_to: Optional[str] = None
+    navigated_to: str | None = None
 
-    page_url: Optional[str] = None
-    screenshot_path: Optional[str] = None
-    snapshot_sha1: Optional[str] = Field(
+    page_url: str | None = None
+    screenshot_path: str | None = None
+    snapshot_sha1: str | None = Field(
         default=None, description="sha1 of the aria snapshot the model saw"
     )
     started_at: str
     duration_ms: int
-    retry_of_index: Optional[int] = Field(
+    retry_of_index: int | None = Field(
         default=None, description="set when this step re-attempts a failed one"
     )
 
@@ -113,9 +113,9 @@ class Trajectory(BaseModel):
     model: str
 
     started_at: str
-    finished_at: Optional[str] = None
-    outcome: Optional[TrajectoryOutcome] = None
-    outcome_detail: Optional[str] = None
+    finished_at: str | None = None
+    outcome: TrajectoryOutcome | None = None
+    outcome_detail: str | None = None
 
     steps: list[TrajectoryStep] = Field(default_factory=list)
 

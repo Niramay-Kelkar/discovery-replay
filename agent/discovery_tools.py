@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 import time
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 from playwright.sync_api import Page
@@ -173,7 +173,7 @@ class ToolExecutor:
 
     # -- public --------------------------------------------------------
 
-    def run_tool(self, tool: str, params: dict[str, Any], rationale: Optional[str],
+    def run_tool(self, tool: str, params: dict[str, Any], rationale: str | None,
                  snapshot_seen: str) -> tuple[str, bool]:
         """Execute one tool call. Returns (tool_result_text, is_error)."""
         self._index += 1
@@ -182,10 +182,10 @@ class ToolExecutor:
         t0 = time.time()
 
         status = "ok"
-        error: Optional[str] = None
-        resolved_model: Optional[ResolvedLocator] = None
-        extraction_model: Optional[ExtractionResult] = None
-        navigated_to: Optional[str] = None
+        error: str | None = None
+        resolved_model: ResolvedLocator | None = None
+        extraction_model: ExtractionResult | None = None
+        navigated_to: str | None = None
         result_text = ""
         is_error = False
 

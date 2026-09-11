@@ -11,11 +11,10 @@ import pytest
 
 from agent.compile import (
     CompileError,
-    InputBinding,
     PolicySpec,
     compile_capability,
 )
-from agent.models import EscalationPolicy, InputParam, ParamType
+from agent.models import EscalationPolicy
 from agent.policies.member_lookup import INPUT_BINDINGS, POLICY_SPEC
 from agent.trajectory import Trajectory
 

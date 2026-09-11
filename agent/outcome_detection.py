@@ -21,8 +21,9 @@ never a specific member's data.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional, get_args
+from typing import get_args
 
 from playwright.sync_api import Page
 
@@ -35,9 +36,9 @@ class DetectionContext:
 
     page: Page
     #: HTTP status of the most recent main-frame document response, if known.
-    http_status: Optional[int] = None
+    http_status: int | None = None
     #: cached body text, filled lazily
-    _text: Optional[str] = field(default=None, repr=False)
+    _text: str | None = field(default=None, repr=False)
 
     def page_text(self) -> str:
         if self._text is None:
@@ -135,7 +136,7 @@ def evaluate_detection_rule(rule: DetectionRule, ctx: DetectionContext) -> bool:
 
 def detect_outcome(
     outcomes: list[ExpectedOutcome], ctx: DetectionContext
-) -> Optional[ExpectedOutcome]:
+) -> ExpectedOutcome | None:
     """The first declared expected outcome currently detectable, or ``None``.
 
     Order follows the artifact's ``expected_outcomes`` list, so a policy
