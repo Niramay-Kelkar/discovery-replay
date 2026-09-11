@@ -86,10 +86,12 @@ docker compose up
 
 This builds one image from the root `Dockerfile` and starts both
 services: `target_app` on port 5001 (seeded fresh on every start) and
-`operator_console` on port 5002, with the repo root bind-mounted so its
-default `evidence/sessions` and `evidence/replays` paths resolve the
-same as they do on the host. From there, run discovery and replay
-commands from the repo root exactly as shown below — they'll reach the
+`operator_console` on port 5002. Only `operator_console` bind-mounts the
+repo root, so its default `evidence/sessions` and `evidence/replays`
+paths resolve the same as they do on the host — that's what lets a
+host-run replay's escalation and an in-container operator_console see
+the same session state. From there, run discovery and replay commands
+from the repo root exactly as shown below — they'll reach the
 containerized target app over `http://127.0.0.1:5001`.
 
 ## Demo path
