@@ -753,13 +753,13 @@ class Replayer:
         return self.base_url + "/" + route.lstrip("/")
 
     def _base_fields(self) -> dict[str, Any]:
-        return dict(
-            capability_id=self.cap.capability_id,
-            run_id=self.run_id,
-            steps_executed=self._steps_executed,
-            duration_s=round(time.time() - self._t0, 3),
-            evidence_path=str(self.ev.path),
-        )
+        return {
+            "capability_id": self.cap.capability_id,
+            "run_id": self.run_id,
+            "steps_executed": self._steps_executed,
+            "duration_s": round(time.time() - self._t0, 3),
+            "evidence_path": str(self.ev.path),
+        }
 
     # -- SETTLE/CHECK + escalation for one step -----------------
 

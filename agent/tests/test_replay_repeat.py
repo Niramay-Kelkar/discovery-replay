@@ -7,7 +7,7 @@ test the aggregation math itself.
 from agent.replay import BusinessOutcome, HardFailure, PendingEscalation, Success
 from agent.replay_cli import _aggregate_stability
 
-_BASE = dict(capability_id="member_lookup", steps_executed=7, evidence_path="x")
+_BASE = {"capability_id": "member_lookup", "steps_executed": 7, "evidence_path": "x"}
 
 
 def _success(run_id: str, duration_s: float) -> dict:

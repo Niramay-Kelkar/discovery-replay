@@ -29,19 +29,21 @@ def _real_trajectory() -> Trajectory:
 
 
 def _minimal_policy(**overrides) -> PolicySpec:
-    base = dict(
-        capability_id="c",
-        version="1.0.0",
-        description="d",
-        app="a",
-        risk_class="read_only",
-        expected_outcomes=POLICY_SPEC.expected_outcomes,
-        escalation_policy=EscalationPolicy(),
-        extra_allowlist_routes=["/member/*"],
-        output_name_mapping={"full_name": "full_name",
-                             "savings_balance": "savings_balance"},
-        policy_authored_by="test",
-    )
+    base = {
+        "capability_id": "c",
+        "version": "1.0.0",
+        "description": "d",
+        "app": "a",
+        "risk_class": "read_only",
+        "expected_outcomes": POLICY_SPEC.expected_outcomes,
+        "escalation_policy": EscalationPolicy(),
+        "extra_allowlist_routes": ["/member/*"],
+        "output_name_mapping": {
+            "full_name": "full_name",
+            "savings_balance": "savings_balance",
+        },
+        "policy_authored_by": "test",
+    }
     base.update(overrides)
     return PolicySpec(**base)
 

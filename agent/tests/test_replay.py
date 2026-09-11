@@ -48,13 +48,13 @@ def test_outcome_detection_covers_every_kind():
 # --- checkpoint evaluator behaviour ---------------------------------------
 
 def _env(**kw):
-    base = dict(
-        visible=lambda loc: False,
-        page_text="",
-        extracted={},
-        required_outputs=["full_name", "savings_balance"],
-        matched_outcome=None,
-    )
+    base = {
+        "visible": lambda loc: False,
+        "page_text": "",
+        "extracted": {},
+        "required_outputs": ["full_name", "savings_balance"],
+        "matched_outcome": None,
+    }
     base.update(kw)
     return CheckEnv(**base)
 
@@ -157,8 +157,10 @@ def test_preflight_unaffected_when_confirmation_not_required():
 # --- result contract is four distinct structural types -------------------
 
 def test_result_types_are_distinct_and_serialisable():
-    common = dict(capability_id="c", run_id="r", steps_executed=1,
-                  duration_s=0.1, evidence_path="e")
+    common = {
+        "capability_id": "c", "run_id": "r", "steps_executed": 1,
+        "duration_s": 0.1, "evidence_path": "e",
+    }
     assert Success(**common, outputs={}).status == "success"
     assert BusinessOutcome(**common, outcome_code="X").status == "business_outcome"
     assert HardFailure(**common).status == "hard_failure"

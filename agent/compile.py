@@ -278,17 +278,17 @@ def _generalize_name(
         out = name[:cut].rstrip(" ,;:-–")
         exact = False
         note = (
-            "resolved accessible name %r contains member-specific data; "
-            "substring match on the stable prefix %r (the rest -- the member "
-            "name and id -- is not known before this step)" % (name, out)
+            f"resolved accessible name {name!r} contains member-specific data; "
+            f"substring match on the stable prefix {out!r} (the rest -- the member "
+            "name and id -- is not known before this step)"
         )
 
     templated_bits: list[str] = []
     for b in bindings:
         if b.discovered_value and b.discovered_value in out:
-            out = out.replace(b.discovered_value, "{{%s}}" % b.param.name)
+            out = out.replace(b.discovered_value, f"{{{{{b.param.name}}}}}")
             templated_bits.append(
-                "templated input %r -> {{%s}}" % (b.discovered_value, b.param.name)
+                f"templated input {b.discovered_value!r} -> {{{{{b.param.name}}}}}"
             )
     # once truncated to a prefix the templating notes are moot; keep the
     # substring-match note. Otherwise the templating note is the story.
@@ -304,21 +304,21 @@ def _generalize_name(
 
 def _entry_step(entry_path: str, notes: CompileNotes) -> dict:
     notes.synthesized.append(
-        "step 1 `open_entry`: navigate to entry_path %r. This is the one step "
+        f"step 1 `open_entry`: navigate to entry_path {entry_path!r}. This is the one step "
         "not sourced 1:1 from a TrajectoryStep -- the discovery loop navigates "
         "to the entry point before the first model turn, so it never appears "
         "as a tool call. It is compiled from `trajectory.entry_path`, a "
         "recorded fact, so replay starts from the same place. Mechanical, not "
-        "policy." % entry_path
+        "policy."
     )
-    return dict(
-        id="open_entry",
-        description="Open the entry page",
-        action="navigate",
-        target_route=entry_path,
-        locators=[],
-        settle=SettleSpec(wait_for="dom_stable", max_wait_seconds=5),
-    )
+    return {
+        "id": "open_entry",
+        "description": "Open the entry page",
+        "action": "navigate",
+        "target_route": entry_path,
+        "locators": [],
+        "settle": SettleSpec(wait_for="dom_stable", max_wait_seconds=5),
+    }
 
 
 def _canonical_output(discovered: str, mapping: dict[str, str]) -> str:
@@ -331,11 +331,10 @@ def _canonical_output(discovered: str, mapping: dict[str, str]) -> str:
     """
     if discovered not in mapping:
         raise CompileError(
-            "trajectory captured an output named %r that PolicySpec."
+            f"trajectory captured an output named {discovered!r} that PolicySpec."
             "output_name_mapping does not cover. Add a mapping entry "
-            "(e.g. %r -> the canonical contract name, or %r -> %r to keep "
+            f"(e.g. {discovered!r} -> the canonical contract name, or {discovered!r} -> {discovered!r} to keep "
             "it) -- the compiler will not pass an output through unmapped."
-            % (discovered, discovered, discovered, discovered)
         )
     return mapping[discovered]
 
@@ -355,15 +354,19 @@ def _compile_action_step(
             "cannot compile a locator for it"
         )
 
-    raw: dict = dict(description=(ts.rationale or f"{ts.tool} {resolved.name!r}"),
-                     action=action)
+    raw: dict = {
+        "description": (ts.rationale or f"{ts.tool} {resolved.name!r}"),
+        "action": action,
+    }
 
     if ts.tool == "extract":
         raw.update(_compile_extract(ts, output_name_mapping, notes))
     else:
         name, exact, gnote = _generalize_name(resolved.name, bindings, captured_values)
-        loc_kwargs = dict(kind="aria_role", rank=1, role=resolved.role,
-                          name=name, exact=exact)
+        loc_kwargs = {
+            "kind": "aria_role", "rank": 1, "role": resolved.role,
+            "name": name, "exact": exact,
+        }
         if not exact and ts.tool == "click":
             loc_kwargs["nth"] = 0
             gnote = (gnote or "") + \
@@ -372,7 +375,7 @@ def _compile_action_step(
         if gnote:
             loc_kwargs["note"] = gnote
             notes.generalizations.append(
-                "step for %r: %s" % (ts.rationale or resolved.name, gnote)
+                f"step for {ts.rationale or resolved.name!r}: {gnote}"
             )
         raw["locators"] = [LocatorStrategy(**loc_kwargs)]
         raw["id"] = _step_id(ts, name)
@@ -431,19 +434,19 @@ def _compile_extract(
     if ex.label_source:
         note += f" (label found via {ex.label_source})"
     notes.parameterizations.append(
-        "extract %r: locator + checkpoint compiled from the label %r, not the "
-        "discovered value %r" % (canonical, ex.label, ex.value)
+        f"extract {canonical!r}: locator + checkpoint compiled from the label {ex.label!r}, not the "
+        f"discovered value {ex.value!r}"
     )
-    return dict(
-        id=f"extract_{_slug(canonical)}",
-        output_name=canonical,
-        locators=[
+    return {
+        "id": f"extract_{_slug(canonical)}",
+        "output_name": canonical,
+        "locators": [
             LocatorStrategy(kind="aria_role", rank=1, role="rowheader",
                             name=ex.label, exact=True, note=note),
             LocatorStrategy(kind="text_label", rank=2, label=ex.label,
                             note="label association confirmed live during discovery"),
         ],
-    )
+    }
 
 
 def _compile_fill(
@@ -455,17 +458,18 @@ def _compile_fill(
     for b in bindings:
         if b.discovered_value == text:
             notes.parameterizations.append(
-                "fill step: literal %r parameterized to input {{%s}}"
-                % (text, b.param.name)
+                f"fill step: literal {text!r} parameterized to input {{{{{b.param.name}}}}}"
             )
-            return dict(input_name=b.param.name,
-                        value_template="{{%s}}" % b.param.name)
+            return {
+                "input_name": b.param.name,
+                "value_template": f"{{{{{b.param.name}}}}}",
+            }
     notes.gaps.append(
-        "fill step types the literal %r, which is not bound to any InputParam; "
+        f"fill step types the literal {text!r}, which is not bound to any InputParam; "
         "left as a hardcoded literal. If a caller should supply this value, add "
-        "an InputBinding for it." % text
+        "an InputBinding for it."
     )
-    return dict(value_template=text)
+    return {"value_template": text}
 
 
 # ---------------------------------------------------------------------------
@@ -531,7 +535,7 @@ def compile_capability(
     if not isinstance(policy, PolicySpec):
         raise CompileError(
             "policy must be a PolicySpec instance (the hand-authored policy "
-            "layer); got %r" % type(policy).__name__
+            f"layer); got {type(policy).__name__!r}"
         )
     if trajectory.outcome != "completed":
         raise CompileError(
@@ -565,17 +569,15 @@ def compile_capability(
     unmapped = sorted(n for n in produced if n not in mapping)
     if unmapped:
         raise CompileError(
-            "trajectory produced output(s) %s with no entry in "
+            f"trajectory produced output(s) {unmapped} with no entry in "
             "PolicySpec.output_name_mapping. Map every output the run "
             "captured to its canonical contract name (use name -> name to "
             "keep one as-is); the compiler will not ship an unmapped output."
-            % unmapped
         )
     for src, dst in mapping.items():
         if src != dst:
             notes.parameterizations.append(
-                "output name normalized: %r (discovered) -> %r (contract)"
-                % (src, dst)
+                f"output name normalized: {src!r} (discovered) -> {dst!r} (contract)"
             )
 
     action_steps = [
@@ -641,10 +643,9 @@ def compile_capability(
     required_names = sorted(o.name for o in outputs)
     if cited_canonical != required_names:
         raise CompileError(
-            "the discovery run's `done` cited outputs %s (canonical: %s) but "
-            "the compiled required outputs are %s. Every cited output must be "
+            f"the discovery run's `done` cited outputs {sorted(trajectory.cited_outputs)} (canonical: {cited_canonical}) but "
+            f"the compiled required outputs are {required_names}. Every cited output must be "
             "an extract step in the trajectory."
-            % (sorted(trajectory.cited_outputs), cited_canonical, required_names)
         )
 
     outputs.append(OutputParam(
@@ -669,16 +670,15 @@ def compile_capability(
     allowlist_routes = sorted(visited)
     notes.guardrail_narrowing.append(
         "allowlist_routes narrowed to the routes visited on the successful "
-        "trajectory: %s%s" % (
+        "trajectory: {}{}".format(
             ", ".join(sorted(visited)),
-            " (plus hand-authored extras: %s)" % ", ".join(policy.extra_allowlist_routes)
+            " (plus hand-authored extras: {})".format(", ".join(policy.extra_allowlist_routes))
             if policy.extra_allowlist_routes else "",
         )
     )
     used_actions = sorted({s.action for s in steps})
     notes.guardrail_narrowing.append(
-        "allowlist_action_types set to exactly the verbs the steps use: %s"
-        % ", ".join(used_actions)
+        "allowlist_action_types set to exactly the verbs the steps use: {}".format(", ".join(used_actions))
     )
 
     max_steps = policy.max_steps or (len(steps) + 3)
