@@ -1415,3 +1415,59 @@ and a native desktop app (role/name onto an OS accessibility API,
 ### Committed
 
 - `REPORT.md`, this entry
+
+## 2026-09-10 — REPORT.md §5 Escalation & handoff
+
+Wrote the section, which was an empty placeholder. Covers the four
+triggers and which one retries first, what an escalation carries (and
+what it doesn't — flat snapshot, no locator-attempt trace, no a11y
+capture), the same-live-session claim and the two ways an operator
+reaches the browser, resume never re-invoking ACT, the timeout path, why
+the console is deliberately bare, and the honest production gaps. A
+Mermaid sequence diagram sits after the second paragraph, showing the
+process boundaries — replay, the browser it owns, the shared SQLite
+store, the console, the human — and the poll-then-resume flow.
+
+### Checked against code before committing
+
+- Retry split: only `on_step_timeout` retries, gated in `_verify_step`
+  on both `_trigger_for(report) == "on_step_timeout"` and
+  `pol.on_step_timeout == "retry"` (`replay.py:780-789`); the compiled
+  artifact sets `max_retries_per_step=2`
+  (`policies/member_lookup.py:187`), so up to two settle/check redos.
+  `_dispatch_trigger` converts a leftover `"retry"` to `"escalate"`
+  (`replay.py:866-868`).
+- Escalation context: `store.open_escalation(...)` at
+  `replay.py:905-911` — goal from `self.cap.discovery.goal`,
+  `expected`/`observed` are the inline strings, `screenshot_path` from
+  `perception.screenshot` (`replay.py:898-900`). Store schema
+  `escalation.py:33-53`; no locator-trace or a11y column.
+- Same session: `browser` launched at `replay.py:346`, closed only in
+  `run()`'s `finally` (`replay.py:362-363`); `_escalate`'s poll loop
+  (`replay.py:921-935`) touches only SQLite + `time.sleep`.
+- Two reach mechanisms: `--headed` → `headless=False`
+  (`replay.py:341`); `--cdp-port` → `--remote-debugging-port` arg
+  (`replay.py:342-345`). Neither configured → escalation opens and
+  polls but no human channel.
+- Resume never re-runs ACT: `_act` called once at `replay.py:440`; the
+  resume paths in `_verify_step` (`replay.py:837-842`) and the
+  ACT-catch branch (`replay.py:452-467`) call `_settle_and_check` only.
+  Bounded at `resumes >= 5` → `HardFailure`
+  `checkpoint_failure_after_resume` (`replay.py:843-852`).
+- Timeout: `store.mark_timed_out` is `WHERE id=? AND status='pending'`
+  (`escalation.py:120-126`); `_escalate` returns a `HardFailure` naming
+  `waited`/`limit` (`replay.py:943-950`); browser then closed by
+  `run()`.
+- Console: `GET /`, scoped `GET /screenshot/...`, `POST /resume/<id>`
+  only (`operator_console.py:55-93`); no auth, default host
+  `127.0.0.1` (`operator_console.py:173`); index is static, no refresh.
+- Poll interval: `poll_interval_s` defaults to `2.0` (`replay.py:292`),
+  matching the diagram's "poll every 2s".
+
+### Wording-precision fixes made to the supplied draft
+
+None. Every claim checked out against the code as written.
+
+### Committed
+
+- `REPORT.md`, this entry

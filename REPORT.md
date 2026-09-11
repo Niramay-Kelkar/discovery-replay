@@ -246,6 +246,112 @@ safety, not a free improvement.
 
 ## 5. Escalation & handoff
 
+Four triggers can lead to escalation, and only one of them ever retries
+first. A step that times out waiting to settle gets up to two automatic
+retries, redoing only settle-and-check, before falling through. An
+unresolved locator, an unrecognized dialog, or a checkpoint that simply
+evaluates false always escalates immediately, regardless of how the
+policy is configured, since the engine converts any other trigger's
+"retry" setting to "escalate" rather than let a config value promise
+something the retry loop doesn't structurally support.
+
+When an escalation opens, it carries the discovery-time goal, the
+capability id, the blocked step's id and ordinal, which phase broke, a
+plain-English expected-versus-observed pair, and a real screenshot of the
+live page at the moment it blocked. Worth being honest about the limit
+here: that context is a flat snapshot, not a diagnostic trace. There's no
+ranked-locator attempt history and no accessibility-tree capture saved
+alongside it, just a single frame and two strings. An operator
+diagnosing something subtler than "there's an unexpected dialog" has less
+to go on than they might want.
+
+```mermaid
+sequenceDiagram
+    participant R as Replay process
+    participant B as Browser (same process, same tab)
+    participant DB as SQLite (escalations.db)
+    participant C as Operator console
+    participant H as Human operator
+
+    R->>B: ACT, then SETTLE/CHECK for the blocked step
+    Note over R: trigger fires
+    R->>B: screenshot the live page
+    R->>DB: open escalation (status: pending)
+    loop poll every 2s until deadline
+        R->>DB: check status
+    end
+    H->>C: view goal / step / trigger / expected vs. observed / screenshot
+    H->>B: attach directly — headed window, or CDP — and resolve the block
+    H->>C: click Resume
+    C->>DB: mark resumed
+    R->>DB: next poll sees status: resumed
+    R->>R: log human_intervention
+    R->>B: SETTLE + CHECK only — ACT is never called again
+    alt checkpoint now passes
+        R->>R: continue to next step
+    else still failing (up to 5 attempts)
+        R->>R: HardFailure: checkpoint_failure_after_resume
+    end
+```
+
+"The same live session" is a precise claim, not a loose one: it is
+literally the same browser process and the same tab that replay was
+already on. The Playwright browser is never closed while the poll loop
+runs; it is the identical Page object the blocked step was checking
+against. The operator reaches it one of two ways. If replay was launched
+with a real window, the operator clicks into it directly. If it was
+launched with a debug port exposed, the operator's own tooling attaches
+to that same browser process over CDP and drives the same tab, the
+mechanism this build's actual live demonstration used, since this
+environment has no real display to click into. Worth stating plainly
+rather than implying otherwise: a headed Chromium here was not something
+anyone was looking at; the handoff was proven by attaching to and
+mutating the identical browser process programmatically. On an operator's
+actual workstation, the same `--headed` flag is a window they would click
+into directly. There is also a real, named gap if neither option is
+configured: the escalation still opens and polls, but there is no channel
+at all for a human to actually touch the page. That is a genuine
+limitation, not a hypothetical one.
+
+Resume is where the ACT/SETTLE/CHECK contract pays off directly. Whether
+the block happened during the action phase or the check phase, resuming
+never calls the action again, only settle-and-check. This is not a
+convention the resume path happens to follow; there is no code path from
+the resume handler back into the action method at all, so a mutating step
+genuinely cannot be double-fired by a human's Resume click, structurally,
+not just by discipline. If the checkpoint still does not pass after
+resuming, the run allows a bounded number of further resumes before
+giving up with a distinct, named failure rather than looping forever.
+
+If no one resumes before the deadline, the browser is torn down (unlike
+during the wait itself), the store record is marked timed out without
+ever clobbering a resume that might arrive a moment later, and the caller
+receives a clean HardFailure naming how long it waited against the
+configured limit. No hang, no crash.
+
+The operator console itself is intentionally bare, per the brief's own
+scope note ruling out a full co-browsing console, and that is the right
+amount of minimal rather than a shortfall: it delivers exactly the two
+things actually required, visibility into why a run is blocked, and a
+control that hands it back, while the same-live-session guarantee lives
+in the replay engine itself, not in anything the console does. What it
+does not do, help the operator connect to the browser in the first
+place, is the genuinely thin part, but it is thin in exactly the place
+the brief says is acceptable to leave thin.
+
+What a real production version would still need, stated plainly rather
+than oversold: push notification instead of a page the operator has to
+remember to reload; authentication on the console, since anything
+reachable on the port can resume any run today; coordination between
+multiple operators, since resuming is one-shot but nothing prevents two
+people from acting on the same live page at once; a built-in way to reach
+the browser at all, rather than assuming a display or manually-run CDP
+tooling; a remote-control channel for an operator on a different machine
+than the one replay is running on; a live or refreshable view rather than
+one screenshot taken at the moment of blocking; and a way for an operator
+actively working the problem to request more time rather than
+hard-failing at a fixed deadline.
+
 ## 6. Safety
 
 ## 7. Cuts
