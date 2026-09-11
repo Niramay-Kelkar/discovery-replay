@@ -1471,3 +1471,85 @@ None. Every claim checked out against the code as written.
 ### Committed
 
 - `REPORT.md`, this entry
+
+---
+
+## 2026-09-10 — REPORT.md §6 Safety
+
+Wrote the section, which was an empty placeholder. Covers the four
+guardrail enforcement points in a table, why none of them retry, how
+risk_class / requires_confirmation / denylist_text_patterns together
+draw the risky-vs-reversible line the brief asks for, an honest
+statement of what's proven live for member_lookup versus what's only
+proven by a synthetic test fixture, the two-places-redacted /
+two-places-not-redacted shape of redaction with the reasoning for each,
+how the API key is actually kept out of the repo, and the structural
+limit that nothing validates a hand-authored policy's own correctness.
+No diagram, per the request.
+
+### Checked against code before committing
+
+- Four enforcement points: `_preflight` (`replay.py:369-413`) —
+  `policy_unauthored`, `confirmation_required`, `missing_input`,
+  aggregate `guardrail_action_type` over all steps, all before
+  `sync_playwright()` opens a browser at `replay.py:340`. `_guard_step`
+  (`replay.py:676-697`) — per-step action-type recheck plus, for
+  `navigate` only, `_route_allowed` against `allowlist_routes`.
+  `_post_nav_guard` (`replay.py:705-723`) — called only for `navigate`/
+  `click` steps (`replay.py:476-478`), checks `forbid_offdomain_navigation`
+  and the *landed* path, not just the declared target. `_denylist_hit`
+  (`replay.py:725-736`) — called after every step regardless of action
+  (`replay.py:484`) and again before any action in `_MUTATING_ACTIONS`
+  fires, inside `_act` (`replay.py:532-538`).
+- None retry: all four return `HardFailure` (or raise into one) before
+  `_verify_step`/`_dispatch_trigger` — the retry/escalation machinery —
+  is ever reached for that step.
+- risk_class's only code effect: `compile.py:694-698`, the
+  `requires_confirmation` default when a `PolicySpec` leaves it `None`.
+  No other file branches on `risk_class` (checked `agent/*.py`).
+  `requires_confirmation` itself enforced at `replay.py:379-389`.
+  `denylist_text_patterns` reasoning ("read-only... on the wrong page")
+  is the actual docstring text in `agent/policies/member_lookup.py`.
+- member_lookup: `risk_class="read_only"`, `requires_confirmation=False`
+  explicit (`policies/member_lookup.py:183-184`), never exercises the
+  `requires_confirmation=True` path live. That gate is only proven by
+  `test_preflight_gates_a_capability_that_requires_confirmation`
+  (`tests/test_replay.py:135-148`), which does
+  `_cap().model_copy(update={"requires_confirmation": True})` on the
+  real compiled artifact — a synthetic fixture, not a real mutating
+  capability run end to end.
+- Redaction: `redact()` (`replay.py:183-195`) applied at `run_start`
+  inputs (`replay.py:337`) and the `extract` evidence write
+  (`replay.py:576`); explicitly *not* applied to the `ReplayResult`
+  returned to the caller (`replay.py:962-965`, comment states this
+  intentionally) or to discovery's `trajectory.json`/`steps.jsonl`
+  (`discovery.py:106-123`), confirmed unredacted by
+  `evidence/README.md`'s note that the trajectory "carries the sample
+  values it read... exactly as `compiled/member_lookup.capability.notes.md`
+  already does." Evidence-curation grep sweep and per-run redaction
+  check both documented in the "Curated evidence/ for submission"
+  BUILD_LOG entry above.
+- Secrets: `.env` loaded only by `agent/discover.py:32`
+  (`load_dotenv`); `git log --all --full-history -- .env` returns
+  nothing — never committed. Only `.env.example` (blank key) was ever
+  committed, in `7c7ccfd`. `.gitignore:151` lists `.env`. No `print()`
+  in `discover.py`/`replay_cli.py` outputs the key value, only the
+  missing-key warning at `discover.py:47`.
+- Policy validation gap: no `model_validator` on `Capability`
+  (`models.py:448-489`) cross-checks `risk_class` against the steps'
+  actual actions, and `_route_allowed` (`replay.py:699-703`) is a plain
+  `fnmatch` with no notion of "too permissive." `policy_authored_by` is
+  a required field on `PolicySpec` (`compile.py:166`, no default) and
+  `_preflight` refuses to run an artifact where it's empty
+  (`replay.py:370-378`) — attribution enforced, correctness not.
+
+### Wording-precision fixes made to the supplied draft
+
+- The `_post_nav_guard` table row said "after acting" without
+  qualification; narrowed to "after a navigate/click step acts," since
+  the guard is only invoked for those two action types
+  (`replay.py:476-478`), not every step.
+
+### Committed
+
+- `REPORT.md`, this entry
