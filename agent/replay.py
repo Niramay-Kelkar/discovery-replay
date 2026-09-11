@@ -52,7 +52,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal, cast
 from urllib.parse import urlsplit
 
 from playwright.sync_api import Error as PlaywrightError
@@ -641,7 +641,9 @@ class Replayer:
         """Returns True iff SETTLE hit its time bound."""
         spec = step.settle
         ms = int(spec.max_wait_seconds * 1000)
-        state = "networkidle" if spec.wait_for == "network_idle" else "load"
+        state: Literal["networkidle", "load"] = (
+            "networkidle" if spec.wait_for == "network_idle" else "load"
+        )
         try:
             page.wait_for_load_state(state, timeout=ms)
         except PWTimeout:
@@ -657,8 +659,10 @@ class Replayer:
             while time.time() < deadline:
                 if step.checkpoint.kind == "element_visible" and step.checkpoint.locator:
                     try:
+                        # role is a runtime string from the compiled
+                        # artifact, not a compile-time AriaRole literal.
                         loc = page.get_by_role(
-                            step.checkpoint.locator.role or "",
+                            cast(Any, step.checkpoint.locator.role or ""),
                             name=step.checkpoint.locator.name or None,
                             exact=step.checkpoint.locator.exact,
                         )

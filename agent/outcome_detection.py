@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import get_args
+from typing import Any, cast, get_args
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
@@ -79,7 +79,9 @@ def _aria_visible(rule: DetectionRule, ctx: DetectionContext) -> bool:
     name = rule.name or None
     try:
         if rule.role:
-            loc = ctx.page.get_by_role(rule.role, name=name, exact=rule.exact)
+            # rule.role is a runtime string from the compiled artifact, not
+            # one of Playwright's compile-time AriaRole literals.
+            loc = ctx.page.get_by_role(cast(Any, rule.role), name=name, exact=rule.exact)
         elif name:
             loc = ctx.page.get_by_text(name, exact=rule.exact)
         else:

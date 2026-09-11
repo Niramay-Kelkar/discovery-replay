@@ -17,6 +17,7 @@ surfaces to the model.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, cast
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, Page
@@ -95,7 +96,9 @@ class Perception:
         multi-match is still resolved to a single element rather than
         raising.
         """
-        loc = self.page.get_by_role(role, name=name, exact=exact)
+        # role is a runtime string (from discovery/the compiled artifact),
+        # not one of Playwright's compile-time AriaRole literals.
+        loc = self.page.get_by_role(cast(Any, role), name=name, exact=exact)
         count = loc.count()
 
         if nth is not None:

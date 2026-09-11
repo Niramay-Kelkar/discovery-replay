@@ -74,7 +74,7 @@ def _load_catalog(capabilities_dir: Path) -> dict[str, Capability]:
 
 
 def _trim_input(p: InputParam) -> dict:
-    d = {
+    d: dict[str, object] = {
         "name": p.name,
         "type": p.type.value,
         "required": p.required,
