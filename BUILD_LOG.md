@@ -1553,3 +1553,70 @@ No diagram, per the request.
 ### Committed
 
 - `REPORT.md`, this entry
+
+---
+
+## 2026-09-10 — Write REPORT.md §7 Cuts (final section)
+
+Wrote `## 7. Cuts`, the last of REPORT.md's seven sections, closing out
+the report. Built from a full re-read of `BUILD_LOG.md` from the
+beginning (not from memory) plus a fresh grep pass against the current
+code, so every gap named is re-verified as still true today, not just
+carried forward from when it was first logged.
+
+Covers: twenty-one gaps compiled across the project's history, split
+into real cuts within the brief's own ask (thin/stubbed rather than
+absent — `within`-scoped extraction, the `test_id`/`css`/`xpath`
+fallback strategies, the unused `snapshot_sha1` fingerprint, the
+synthetically-proven `requires_confirmation` gate, thin escalation
+context, no console auth/notification, no policy-correctness
+validation, the `nth=0` latent non-determinism) versus what's
+genuinely out of scope per the brief itself (full co-browsing console,
+multi-tenant build, desktop port, unattempted stretch goals); a
+"what's next" list prioritized by which gap most directly strengthens
+the weakest part of the system rather than by ease of build; and the
+last-name search gap cited as the project's own precedent that this
+cycle — honestly narrow, then genuinely close later — already worked
+once on this codebase.
+
+### Checked against code before committing
+
+- `test_id`: `agent/models.py:80` docstring only, no resolver branch
+  anywhere in `agent/replay.py`.
+- `css`/`xpath`: resolver handles both (`replay.py:260`) but
+  `agent/compile.py` never constructs a locator of either kind —
+  reserved and resolvable, never emitted.
+- `within`: declared on `LocatorStrategy` (`models.py:104`); grep across
+  `agent/` finds no code path that reads `loc.within` — inert, matching
+  the prior Heterogeneity-section finding.
+- `snapshot_sha1`: written at `discovery_tools.py:361`, read by nothing.
+- `requires_confirmation`: only exercised by the synthetic fixture at
+  `tests/test_replay.py:135-148`, as already established in the Safety
+  section's own verification.
+- Operator console: `grep -n "auth\|password\|token"` and
+  `grep -n "notify\|notification\|email\|sms\|slack"` across
+  `agent/operator_console.py` both return nothing.
+- `risk_class`: only code branch is `compile.py:697`
+  (`requires_confirmation` default); no policy-correctness check
+  exists anywhere in `agent/*.py`.
+
+### Full-report consistency pass
+
+Read all seven sections together after this insertion, specifically
+checking for contradicting numbers, terminology, or claims between
+sections written in separate passes. None found: the locator-strategy
+claims (§2, §4, §7), the unused-fingerprint claims (§3, §4, §7), the
+escalation-context claims (§5, §7), and the `requires_confirmation`
+proof-status claims (§6, §7) all agree, several nearly verbatim,
+across sections written on different days. No wording changes were
+needed to the supplied section text — every checkable claim in it
+(code and BUILD_LOG both) already held before it was committed. Two
+citations to the assignment PDF's own section numbers (3.6, 3.7,
+Section 8) are outside what this session can verify directly (the PDF
+itself isn't in the repo or session context); they're carried as
+written, consistent with how §5 and §6 already cite the same brief
+sections elsewhere in the report.
+
+### Committed
+
+- `REPORT.md`, this entry
