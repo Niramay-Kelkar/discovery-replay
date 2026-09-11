@@ -72,6 +72,26 @@ and must be up for both discovery and replay:
 target always starts in a known state (7 members, `M1001`–`M1007`).
 Leave `flask` running in its own terminal.
 
+### Quick start via Docker
+
+`target_app` and `operator_console` are plain Flask apps with no browser
+dependency, so they can run in containers. `discover.py`, `replay.py`,
+and `capability_api.py` drive a headed Playwright browser and are not
+containerized — they stay on the host, pointed at the containerized
+services:
+
+```bash
+docker compose up
+```
+
+This builds one image from the root `Dockerfile` and starts both
+services: `target_app` on port 5001 (seeded fresh on every start) and
+`operator_console` on port 5002, with the repo root bind-mounted so its
+default `evidence/sessions` and `evidence/replays` paths resolve the
+same as they do on the host. From there, run discovery and replay
+commands from the repo root exactly as shown below — they'll reach the
+containerized target app over `http://127.0.0.1:5001`.
+
 ## Demo path
 
 One clean pass through discovery → compile → replay, for the
