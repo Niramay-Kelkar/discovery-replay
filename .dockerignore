@@ -1,0 +1,10 @@
+.venv
+venv
+__pycache__
+*.pyc
+.git
+.env
+evidence/runs
+evidence/sessions
+evidence/replays
+target_app/*.db
