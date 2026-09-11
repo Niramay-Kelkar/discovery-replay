@@ -1,0 +1,454 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "member_lookup",
+  "version": "1.1.0",
+  "description": "Look up a bank member by member ID or by last name and return their record and current savings balance. The search_field input selects which mode; both are exercised by the compiled steps.",
+  "target": {
+    "app": "acme-teller-console",
+    "base_url": "http://127.0.0.1:5001",
+    "entry_route": "/"
+  },
+  "inputs": [
+    {
+      "name": "search_field",
+      "type": "string",
+      "required": true,
+      "description": "Which field to search on -- the accessible name of the search-field radio to select before searching.",
+      "example": "Last name",
+      "allowed_values": [
+        "Member ID",
+        "Last name"
+      ]
+    },
+    {
+      "name": "search_term",
+      "type": "string",
+      "required": true,
+      "description": "The member ID or last name to look up, matching the search_field selection.",
+      "example": "Okafor"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "full_name",
+      "type": "string",
+      "required": true,
+      "description": "Full name from the member record."
+    },
+    {
+      "name": "savings_balance",
+      "type": "money",
+      "required": true,
+      "description": "Savings balance from the member record."
+    },
+    {
+      "name": "outcome_code",
+      "type": "string",
+      "required": false,
+      "description": "Set by replay on every run: 'SUCCESS' on the happy path, otherwise the matched expected-outcome code."
+    }
+  ],
+  "steps": [
+    {
+      "ordinal": 1,
+      "id": "open_entry",
+      "description": "Open the entry page",
+      "action": "navigate",
+      "locators": [],
+      "target_route": "/",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 5.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "step succeeded: the next step's target (radio {{search_field}}) is visible, OR a recognized business outcome was detected",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "radio",
+              "name": "{{search_field}}",
+              "exact": true,
+              "note": "templated input 'Last name' -> {{search_field}}"
+            }
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 2,
+      "id": "click_search_field",
+      "description": "Switch the search field to Last name as required by the goal",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "radio",
+          "name": "{{search_field}}",
+          "exact": true,
+          "note": "templated input 'Last name' -> {{search_field}}"
+        }
+      ],
+      "settle": {
+        "wait_for": "network_idle",
+        "max_wait_seconds": 12.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "step succeeded: the next step's target (textbox Search term (member ID or last name)) is visible, OR a recognized business outcome was detected",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "textbox",
+              "name": "Search term (member ID or last name)",
+              "exact": true
+            }
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 3,
+      "id": "enter_search_term",
+      "description": "Enter the last name to search for the member",
+      "action": "fill",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "textbox",
+          "name": "Search term (member ID or last name)",
+          "exact": true
+        }
+      ],
+      "input_name": "search_term",
+      "value_template": "{{search_term}}",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "step succeeded: the next step's target (button Look Up) is visible, OR a recognized business outcome was detected",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "button",
+              "name": "Look Up",
+              "exact": true
+            }
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 4,
+      "id": "click_look_up",
+      "description": "Submit the search to find the member with last name Okafor",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "button",
+          "name": "Look Up",
+          "exact": true
+        }
+      ],
+      "settle": {
+        "wait_for": "network_idle",
+        "max_wait_seconds": 12.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "step succeeded: the next step's target (link Open detail for) is visible, OR a recognized business outcome was detected",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "link",
+              "name": "Open detail for",
+              "exact": false,
+              "nth": 0,
+              "note": "resolved accessible name 'Open detail for James Okafor, member M1004' contains member-specific data; substring match on the stable prefix 'Open detail for' (the rest -- the member name and id -- is not known before this step); nth=0 -- a substring match can hit several result rows, take the first"
+            }
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 5,
+      "id": "click_open_detail_for",
+      "description": "Open the member record for James Okafor",
+      "action": "click",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "link",
+          "name": "Open detail for",
+          "exact": false,
+          "nth": 0,
+          "note": "resolved accessible name 'Open detail for James Okafor, member M1004' contains member-specific data; substring match on the stable prefix 'Open detail for' (the rest -- the member name and id -- is not known before this step); nth=0 -- a substring match can hit several result rows, take the first"
+        }
+      ],
+      "settle": {
+        "wait_for": "network_idle",
+        "max_wait_seconds": 12.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "step succeeded: the next step's target (rowheader Full name) is visible, OR a recognized business outcome was detected",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "rowheader",
+              "name": "Full name",
+              "exact": true,
+              "note": "value is the cell paired with this rowheader (label found via rowheader_in_row)"
+            }
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 6,
+      "id": "extract_full_name",
+      "description": "Read the full name of the member from their record",
+      "action": "extract",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Full name",
+          "exact": true,
+          "note": "value is the cell paired with this rowheader (label found via rowheader_in_row)"
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "Full name",
+          "note": "label association confirmed live during discovery"
+        }
+      ],
+      "output_name": "full_name",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "step succeeded: the next step's target (rowheader Savings balance) is visible, OR a recognized business outcome was detected",
+        "checks": [
+          {
+            "kind": "element_visible",
+            "locator": {
+              "kind": "aria_role",
+              "rank": 1,
+              "role": "rowheader",
+              "name": "Savings balance",
+              "exact": true,
+              "note": "value is the cell paired with this rowheader (label found via rowheader_in_row)"
+            }
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    },
+    {
+      "ordinal": 7,
+      "id": "extract_savings_balance",
+      "description": "Read the current savings balance of the member from their record",
+      "action": "extract",
+      "locators": [
+        {
+          "kind": "aria_role",
+          "rank": 1,
+          "role": "rowheader",
+          "name": "Savings balance",
+          "exact": true,
+          "note": "value is the cell paired with this rowheader (label found via rowheader_in_row)"
+        },
+        {
+          "kind": "text_label",
+          "rank": 2,
+          "exact": true,
+          "label": "Savings balance",
+          "note": "label association confirmed live during discovery"
+        }
+      ],
+      "output_name": "savings_balance",
+      "settle": {
+        "wait_for": "dom_stable",
+        "max_wait_seconds": 2.0
+      },
+      "checkpoint": {
+        "kind": "any_of",
+        "description": "all declared outputs extracted, OR a recognized business outcome",
+        "checks": [
+          {
+            "kind": "outputs_non_empty",
+            "description": "every page-extracted output is populated",
+            "outputs": [
+              "full_name",
+              "savings_balance"
+            ]
+          },
+          {
+            "kind": "outcome_matched"
+          }
+        ]
+      },
+      "retryable": true
+    }
+  ],
+  "risk_class": "read_only",
+  "requires_confirmation": false,
+  "expected_outcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member matched the search term.",
+      "classification": "business_outcome",
+      "terminal": true,
+      "detection": {
+        "kind": "any_of",
+        "exact": false,
+        "rules": [
+          {
+            "kind": "text_present",
+            "text": "No members matched that search.",
+            "exact": false
+          },
+          {
+            "kind": "text_present",
+            "text": "No such member.",
+            "exact": false
+          }
+        ]
+      }
+    },
+    {
+      "code": "ACCESS_DENIED",
+      "description": "The teller profile is not authorized to view this member's record.",
+      "classification": "business_outcome",
+      "terminal": true,
+      "detection": {
+        "kind": "any_of",
+        "exact": false,
+        "rules": [
+          {
+            "kind": "http_status",
+            "exact": false,
+            "status": 403
+          },
+          {
+            "kind": "aria_visible",
+            "role": "alert",
+            "name": "not authorized",
+            "exact": false
+          }
+        ]
+      }
+    },
+    {
+      "code": "SUPERVISOR_REVIEW_REQUIRED",
+      "description": "The record is flagged for supervisor review; a confirmation interstitial blocks the detail page. Replay reports this rather than clicking through.",
+      "classification": "business_outcome",
+      "terminal": true,
+      "detection": {
+        "kind": "any_of",
+        "exact": false,
+        "rules": [
+          {
+            "kind": "aria_visible",
+            "role": "alertdialog",
+            "name": "Supervisor review required",
+            "exact": false
+          },
+          {
+            "kind": "text_present",
+            "text": "Supervisor review required",
+            "exact": false
+          }
+        ]
+      }
+    }
+  ],
+  "guardrails": {
+    "allowlist_routes": [
+      "/",
+      "/member/*",
+      "/member/M1004",
+      "/search"
+    ],
+    "allowlist_action_types": [
+      "click",
+      "extract",
+      "fill",
+      "navigate"
+    ],
+    "denylist_text_patterns": [
+      "Transfer funds",
+      "Wire transfer",
+      "Close account"
+    ],
+    "max_steps": 20,
+    "forbid_offdomain_navigation": true
+  },
+  "escalation_policy": {
+    "max_retries_per_step": 2,
+    "retry_backoff_seconds": 1.5,
+    "human_handoff_timeout_seconds": 900.0,
+    "on_step_timeout": "retry",
+    "on_hard_failure": "escalate",
+    "on_unrecognized_dialog": "escalate",
+    "on_checkpoint_failure": "escalate"
+  },
+  "discovery": {
+    "run_id": "disc-20260910-084016",
+    "model": "claude-sonnet-4-6",
+    "goal": "In the member search screen, switch the search field to last name by clicking the 'Last name' radio button (do not use the default 'Member ID' option), then search for the member with last name Okafor, open their record, and read their full name and current savings balance.",
+    "completed_at": "2026-09-10T15:40:38.165258+00:00"
+  },
+  "policy_authored_by": "niramay (hand-authored policy for disc-20260910-084016)"
+}
