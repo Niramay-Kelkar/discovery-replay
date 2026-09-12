@@ -47,6 +47,12 @@ error.
 | `M1006` | `Ashwood` | **Unexpected interstitial.** Ordinary DB row; `M1006` is in `INTERSTITIAL_IDS` in `app.py`, so `/member/M1006` shows a "Supervisor review required" confirmation dialog (`role="alertdialog"`) instead of the record. Clicking **Continue** (`/member/M1006?confirm=yes`) proceeds to the real detail page; **Cancel** returns to search. This one *is* a declared expected outcome (`SUPERVISOR_REVIEW_REQUIRED`): replay recognizes it and reports it, it does not escalate. | search `M1006` → View |
 | `M1007` | `Whitfield` | **Unrecognized blocking state → human escalation.** Ordinary DB row; `M1007` is in `MAINTENANCE_HOLD_IDS` in `app.py`, so `/member/M1007` shows an **"Account maintenance hold"** screen (`role="alertdialog"`, `aria-label="Account maintenance hold"`) instead of the record. Unlike every other non-happy case, this matches **none** of the declared `expected_outcomes` — different wording, an aria-label the PolicySpec has never seen — so replay cannot classify it and escalates to a human operator. Clicking **Dismiss** (`/member/M1007?ack=yes`) clears it to the real detail page (Dana Whitfield, balance $7,605.14); **Back to search** returns to `/`. | search `M1007` → View |
 
+Note on `M1007`: its **Dismiss** control's accessible name is
+`"Acknowledge hold and open record"` (set via `aria-label`), not its
+visible text — deliberately, since it's what VERIFICATION.md's locator
+targets and demonstrates why this system resolves elements by
+accessible role/name rather than visible text or CSS/XPath.
+
 **Why the split:** `access_denied` is a data-backed column because it is
 a genuine fact about the member's record — an authorization business
 outcome replay should report as such. The slow-load delay, the
